@@ -1,0 +1,2036 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>La Cesta Familiar</title>
+<meta name="description" content="La lista de la compra de la familia: espacios compartidos, menú, recetas, despensa y precios.">
+<meta name="theme-color" content="#f2f2f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0e0f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="La Cesta">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<style>
+/* Layout: one-column app shell (max 760px). Coloured space band on top, tile grid below, bottom sheets for actions. */
+:root{
+  --bg:#f3f5f1;
+  --surface:#ffffff;
+  --surface-2:#e8ece5;
+  --fg:#1c2420;
+  --muted:#5d6a63;
+  --line:#d6ddd3;
+  --ink-on:#ffffff;
+  --accent:#2f6b4f;
+  --mustard:#e2a92b;
+  --danger:#b4382a;
+  --s-verde:#2f6b4f;
+  --s-tomate:#c4472f;
+  --s-ciruela:#7a3e72;
+  --s-mar:#2b5f8a;
+  --s-azafran:#a2650f;
+  --s-pizarra:#4a5560;
+  --shadow:0 1px 2px rgba(28,36,32,.06),0 6px 20px rgba(28,36,32,.07);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121614;--surface:#1b211e;--surface-2:#242b27;--fg:#e6ebe7;--muted:#97a49c;--line:#2f3833;--ink-on:#ffffff;
+  --accent:#4f9a75;--mustard:#e8b64a;--danger:#e0705f;
+  --s-verde:#3a7d5d;--s-tomate:#c9553c;--s-ciruela:#8c4d83;--s-mar:#356e9c;--s-azafran:#a86f1c;--s-pizarra:#5a6672;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121614;--surface:#1b211e;--surface-2:#242b27;--fg:#e6ebe7;--muted:#97a49c;--line:#2f3833;--ink-on:#ffffff;
+  --accent:#4f9a75;--mustard:#e8b64a;--danger:#e0705f;
+  --s-verde:#3a7d5d;--s-tomate:#c9553c;--s-ciruela:#8c4d83;--s-mar:#356e9c;--s-azafran:#a86f1c;--s-pizarra:#5a6672;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);color-scheme:dark}
+
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2.5px solid var(--mustard);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Band */
+.band{--sc:var(--accent);background:var(--sc);color:var(--ink-on);transition:background .3s}
+.band .wrap{padding-block:18px 22px;display:flex;flex-direction:column;gap:14px}
+.band-top{display:flex;align-items:center;gap:10px;min-height:40px}
+.iconbtn{width:40px;height:40px;border-radius:12px;border:0;background:rgba(255,255,255,.16);color:inherit;display:grid;place-items:center;flex:none}
+.iconbtn:hover{background:rgba(255,255,255,.26)}
+.iconbtn svg{width:20px;height:20px}
+.crumb{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.85;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.band h1{font-family:var(--f-display);font-weight:800;font-size:clamp(30px,7vw,44px);line-height:1.02;margin:0;letter-spacing:-.02em;text-wrap:balance;overflow-wrap:anywhere}
+.band .sub{margin:0;opacity:.88;font-size:14.5px}
+.band-actions{display:flex;flex-wrap:wrap;gap:8px}
+.pill{border:0;border-radius:999px;padding:9px 15px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.16);color:inherit}
+.pill:hover{background:rgba(255,255,255,.26)}
+.pill.solid{background:#fff;color:var(--sc)}
+.pill svg{width:17px;height:17px}
+.avatars{display:flex;align-items:center}
+.avatars img{width:28px;height:28px;border-radius:50%;border:2px solid var(--sc);margin-left:-8px;background:var(--surface-2);object-fit:cover}
+.avatars img:first-child{margin-left:0}
+.avatars .more{margin-left:6px;font-size:13px;font-weight:600;opacity:.9}
+
+main .wrap{padding-block:20px 120px;display:flex;flex-direction:column;gap:22px}
+.notice{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;color:var(--muted);font-size:14px}
+.notice strong{color:var(--fg)}
+
+/* Section labels */
+.label{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.label .count{font-variant-numeric:tabular-nums;background:var(--surface-2);color:var(--fg);border-radius:999px;padding:1px 8px;letter-spacing:0}
+
+/* Space cards */
+.spaces{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.space-card{--sc:var(--accent);text-align:left;border:0;border-radius:18px;background:var(--surface);box-shadow:var(--shadow);padding:0;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.space-card .sc-top{background:var(--sc);color:var(--ink-on);padding:16px 16px 14px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;min-height:88px}
+.space-card .sc-emoji{font-size:34px;line-height:1}
+.space-card .sc-name{font-family:var(--f-display);font-weight:700;font-size:21px;line-height:1.1;padding:12px 16px 2px;overflow-wrap:anywhere}
+.space-card .sc-meta{padding:0 16px 14px;color:var(--muted);font-size:13.5px;font-variant-numeric:tabular-nums}
+.space-card .avatars img{border-color:var(--sc)}
+.space-card:hover{transform:translateY(-1px)}
+.space-card{transition:transform .15s}
+
+/* Lists */
+.lists{display:flex;flex-direction:column;gap:10px}
+.list-row{display:flex;align-items:center;gap:14px;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:14px 16px;text-align:left;width:100%}
+.list-row:hover{border-color:var(--muted)}
+.list-row .lr-emoji{font-size:26px;width:44px;height:44px;border-radius:12px;background:var(--surface-2);display:grid;place-items:center;flex:none}
+.list-row .lr-body{flex:1;min-width:0}
+.list-row .lr-name{font-weight:700;font-size:16.5px;overflow-wrap:anywhere}
+.list-row .lr-peek{color:var(--muted);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-row .lr-badge{font-variant-numeric:tabular-nums;font-weight:700;min-width:32px;height:32px;padding:0 9px;border-radius:999px;display:grid;place-items:center;background:var(--sc);color:var(--ink-on);flex:none}
+.list-row .lr-badge.zero{background:var(--surface-2);color:var(--muted)}
+
+/* Add bar */
+.addbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px 6px;margin-block:-10px -6px}
+.addbox{display:flex;gap:8px;align-items:center;background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:6px 6px 6px 14px;box-shadow:var(--shadow)}
+.addbox:focus-within{border-color:var(--sc)}
+.addbox input{flex:1;min-width:0;border:0;background:transparent;padding:8px 0;font-size:16px;outline:none}
+.addbox button{border:0;border-radius:12px;background:var(--sc);color:var(--ink-on);font-weight:700;padding:9px 14px}
+.suggest{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}
+.suggest[hidden]{display:none}
+
+/* Tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+.tile{position:relative;aspect-ratio:1/1;max-width:100%;border:0;border-radius:14px;padding:10px 6px 9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;background:var(--sc);color:var(--ink-on);transition:transform .12s, opacity .2s}
+.tile:active{transform:scale(.95)}
+.tile .t-ico{font-size:34px;line-height:1.05;height:38px;display:grid;place-items:center}
+.tile .t-letter{font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1}
+.tile .t-name{font-weight:600;font-size:13.5px;line-height:1.15;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tile .t-spec{font-size:11.5px;opacity:.85;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tile.recent{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+.tile.recent .t-ico{filter:saturate(.7)}
+.tile.ghost{background:var(--surface-2);color:var(--fg);border:1.5px dashed var(--line)}
+.tile .t-edit{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:8px;border:0;background:rgba(255,255,255,.18);color:inherit;display:grid;place-items:center;opacity:.85}
+.tile.recent .t-edit{background:var(--surface-2)}
+.tile .t-edit svg{width:14px;height:14px}
+.tile .t-by{position:absolute;top:6px;left:6px;width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);object-fit:cover}
+.catlabel{grid-column:1/-1;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.catlabel:first-child{margin-top:0}
+
+/* Empty state */
+.empty{border:1.5px dashed var(--line);border-radius:18px;padding:28px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--muted)}
+.empty .e-big{font-family:var(--f-display);font-weight:800;font-size:22px;color:var(--fg);margin:0}
+.empty p{margin:0;max-width:42ch}
+.btn{border:0;border-radius:12px;padding:11px 18px;font-weight:700;background:var(--sc,var(--accent));color:var(--ink-on);display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn.quiet{background:var(--surface-2);color:var(--fg)}
+.btn.danger{background:var(--danger);color:#fff}
+.btn.block{width:100%}
+.btn svg{width:18px;height:18px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.linkish{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:14px}
+
+/* Sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,14,12,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
+.sheet{--sc:var(--accent);background:var(--surface);color:var(--fg);width:100%;max-width:560px;border-radius:22px 22px 0 0;max-height:88vh;overflow:auto;padding:22px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px;animation:up .2s ease-out}
+@media (min-width:640px){.scrim{align-items:center}.sheet{border-radius:22px}}
+.sheet h2{font-family:var(--f-display);font-weight:800;font-size:24px;margin:0;letter-spacing:-.01em}
+.sheet p{margin:0;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select{border:1.5px solid var(--line);background:var(--bg);border-radius:12px;padding:11px 12px;font-size:16px;width:100%}
+.field input:focus,.field select:focus{outline:none;border-color:var(--sc)}
+.choices{display:flex;flex-wrap:wrap;gap:6px}
+.choice{width:44px;height:44px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);font-size:22px;display:grid;place-items:center}
+.choice[aria-pressed="true"]{border-color:var(--fg);box-shadow:inset 0 0 0 2px var(--surface)}
+.swatch{width:36px;height:36px;border-radius:50%;border:3px solid transparent;box-shadow:0 0 0 1.5px var(--line)}
+.swatch[aria-pressed="true"]{border-color:var(--surface);box-shadow:0 0 0 2.5px var(--fg)}
+.invite-box{border:1.5px dashed var(--sc);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.code{font-family:var(--f-display);font-weight:800;font-size:34px;letter-spacing:.14em;font-variant-numeric:tabular-nums;color:var(--sc);user-select:all}
+.invite-link{font-size:13px;color:var(--muted);word-break:break-all;user-select:all}
+.members{display:flex;flex-direction:column;gap:8px}
+.member{display:flex;align-items:center;gap:10px}
+.member img{width:32px;height:32px;border-radius:50%;object-fit:cover}
+.member span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.member em{font-style:normal;font-size:12.5px;color:var(--muted)}
+.steps{margin:0;padding-left:20px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-size:14px}
+
+
+/* Rows */
+.rows{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.rows>li+li{border-top:1px solid var(--line)}
+.row-item{display:flex;align-items:center;gap:4px;padding-right:6px;min-height:58px}
+.check{flex:none;width:52px;height:58px;border:0;background:none;display:grid;place-items:center;padding:0}
+.check svg{width:26px;height:26px;padding:3px;border-radius:8px;border:2px solid var(--line);color:transparent;background:var(--bg);transition:background .15s,border-color .15s,color .15s}
+.check:hover svg{border-color:var(--sc)}
+.row-item.checked .check svg{background:var(--sc);border-color:var(--sc);color:var(--ink-on)}
+.r-main{flex:1;min-width:0;display:flex;align-items:center;gap:12px;border:0;background:none;text-align:left;padding:8px 4px 8px 0}
+.r-ico{font-size:24px;width:34px;text-align:center;flex:none;line-height:1}
+.r-letter{font-family:var(--f-display);font-weight:800;font-size:18px;width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:grid;place-items:center}
+.r-text{display:flex;flex-direction:column;min-width:0}
+.r-name{font-weight:600;font-size:16px;overflow-wrap:anywhere;transition:color .15s}
+.r-spec{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.row-item.checked .r-name{text-decoration:line-through;text-decoration-thickness:2px;color:var(--muted)}
+.row-item.checked .r-ico{opacity:.45}
+.r-by{width:22px;height:22px;border-radius:50%;object-fit:cover;flex:none;opacity:.9}
+.r-edit{flex:none;width:38px;height:38px;border:0;border-radius:10px;background:none;color:var(--muted);display:grid;place-items:center}
+.r-edit:hover{background:var(--surface-2);color:var(--fg)}
+.r-edit svg{width:17px;height:17px}
+.row-add{width:100%;display:flex;align-items:center;gap:12px;border:0;background:none;text-align:left;padding:10px 14px;min-height:52px}
+.row-add:hover{background:var(--surface-2)}
+.row-add .r-text{flex:1}
+.r-plus{font-size:13px;font-weight:700;color:var(--sc,var(--accent));flex:none}
+.rows.soft .r-name{font-weight:500}
+.suggest{display:block;margin-top:8px}
+.suggest .rows{box-shadow:var(--shadow)}
+.catlabel{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.label .label-note{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;font-size:13px;color:var(--sc)}
+.finish{position:fixed;left:0;right:0;bottom:0;z-index:20;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.08);animation:up .2s ease-out}
+.finish-in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px;justify-content:space-between;padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.finish-txt{color:var(--muted);font-size:14.5px}
+.finish .btn{white-space:nowrap}
+.finish-txt strong{color:var(--fg);font-variant-numeric:tabular-nums}
+
+.history{display:flex;flex-direction:column;gap:8px}
+.history .catlabel:first-child{margin-top:0}
+.purchase{border:1px solid var(--line);border-radius:var(--r);background:var(--bg)}
+.purchase summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.purchase summary::-webkit-details-marker{display:none}
+.pu-main{flex:1;min-width:0;display:flex;flex-direction:column}
+.pu-date{font-weight:700}
+.pu-meta{font-size:13.5px;color:var(--muted);overflow-wrap:anywhere}
+.pu-chev{width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s;flex:none;margin-right:4px}
+.purchase[open] .pu-chev{transform:rotate(-135deg)}
+.pu-items{list-style:none;margin:0;padding:0 14px 6px;display:flex;flex-direction:column}
+.pu-items li{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line)}
+.pu-items .r-ico{font-size:19px;width:26px}
+.pu-items em{font-style:normal;color:var(--muted);font-size:13px}
+.pu-actions{padding:6px 14px 14px}
+.pu-actions .btn{font-size:14px;padding:9px 14px}
+
+.item-head{display:flex;gap:14px;align-items:center}
+.item-head .item-ico{font-size:40px;width:60px;height:60px;border-radius:16px;background:var(--bg);display:grid;place-items:center;flex:none}
+.item-head h2{overflow-wrap:anywhere}
+.item-head p{font-size:13.5px}
+.item-form{display:flex;flex-direction:column;gap:18px}
+.fs{display:flex;flex-direction:column;gap:10px}
+.fs .label{margin:0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:420px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.grid4 .field{position:relative}
+.grid4 .field input{padding-right:34px}
+.grid4 .unit{position:absolute;right:10px;bottom:12px;font-size:12px;color:var(--muted);pointer-events:none}
+.nutri-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--surface-2);gap:2px}
+.nutri-bar:empty{display:none}
+.nutri-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+.nutri-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+.nutri-total{font-size:14px;color:var(--muted)}
+.nutri-total strong{color:var(--fg);font-variant-numeric:tabular-nums}
+.fine{font-size:12.5px!important;color:var(--muted)}
+.label .label-est{font-weight:700;letter-spacing:0;text-transform:none;font-size:13px;color:var(--fg);font-variant-numeric:tabular-nums}
+
+/* Banner de compra */
+.shopping-banner{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.16);border-radius:14px;padding:8px 12px;font-size:14px}
+.shopping-banner img{width:26px;height:26px;border-radius:50%;object-fit:cover;flex:none}
+.shopping-banner span{min-width:0}
+.sc-shop{padding:0 16px 14px;margin-top:-6px;font-size:13px;font-weight:600;color:var(--sc)}
+/* Pestañas */
+.tabs{display:flex;gap:4px;background:var(--surface-2);border-radius:14px;padding:4px;overflow-x:auto;scrollbar-width:none}
+.tabs button{flex:1 1 0;min-width:max-content;border:0;background:none;border-radius:10px;padding:9px 6px;font-weight:600;font-size:14px;color:var(--muted);white-space:nowrap}
+@media (max-width:440px){.tabs{gap:2px;padding:3px}.tabs button{font-size:13px;padding:8px 5px}}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:var(--shadow)}
+.tabdyn{display:flex;flex-direction:column;gap:18px}
+#dyn{display:flex;flex-direction:column;gap:22px}
+#tabFixed:empty{display:none}
+/* Chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.chip{flex:none;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 13px;font-weight:600;font-size:14px}
+.chip:hover{border-color:var(--sc,var(--accent))}
+.chip em{font-style:normal;color:var(--muted);font-weight:500;font-size:12.5px;font-variant-numeric:tabular-nums}
+.chip.on{background:var(--sc);border-color:var(--sc);color:var(--ink-on)}
+.low .rows{border-color:var(--mustard)}
+.r-who{font-size:12.5px;font-weight:600;color:var(--muted);margin-top:1px}
+.r-who.me{color:var(--sc)}
+.r-photo{width:38px;height:38px;border-radius:10px;object-fit:cover;flex:none}
+/* Modo tienda */
+.store-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:16px;color:var(--muted)}
+.store-bar strong{color:var(--fg);font-size:22px;font-family:var(--f-display);font-variant-numeric:tabular-nums}
+body.store .row-item{min-height:70px}
+body.store .r-name{font-size:20px}
+body.store .r-spec{font-size:14.5px}
+body.store .check{width:62px;height:70px}
+body.store .check svg{width:32px;height:32px}
+body.store .r-ico{font-size:30px;width:40px}
+body.store .r-photo{width:48px;height:48px}
+body.store .band h1{font-size:28px}
+body.store .catlabel{font-size:13px}
+/* Despensa */
+.pantry-row{display:flex;align-items:center;gap:10px;padding:8px 6px 8px 14px;flex-wrap:wrap;min-height:58px}
+.pantry-row .r-text{flex:1;min-width:90px}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px}
+.seg button{border:0;background:none;border-radius:8px;padding:6px 9px;font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.st-no .seg button[aria-pressed="true"]{background:var(--danger);color:#fff}
+.st-poco .seg button[aria-pressed="true"]{background:var(--mustard);color:#1c2420}
+.mini{border:0;border-radius:9px;background:var(--sc);color:var(--ink-on);font-weight:700;font-size:13px;padding:7px 10px;display:inline-flex;align-items:center;gap:4px}
+.mini svg{width:14px;height:14px}
+.pantry-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--surface);border:1.5px solid var(--mustard);border-radius:var(--r);padding:12px 14px}
+@media (max-width:520px){.pantry-row .seg{order:3;width:100%}.pantry-row .seg button{flex:1}}
+/* Recetas */
+.recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.recipes.small{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+.recipe-card{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;min-width:0}
+.recipe-card:hover,.recipe-card.sel{border-color:var(--sc)}
+.recipe-card.sel{box-shadow:inset 0 0 0 1.5px var(--sc)}
+.rc-emoji{font-size:30px}
+.rc-name{font-weight:700;font-size:15.5px;overflow-wrap:anywhere}
+.rc-meta{font-size:13px;color:var(--muted)}
+.field textarea{border:1.5px solid var(--line);background:var(--bg);border-radius:12px;padding:11px 12px;font:inherit;font-size:15px;width:100%;resize:vertical;color:inherit}
+.field textarea:focus{outline:none;border-color:var(--sc)}
+.steps-txt{white-space:pre-wrap;color:var(--fg)!important}
+.pu-items.plain{padding:0}
+.tag{font-size:11.5px;font-weight:700;background:var(--surface-2);color:var(--muted);border-radius:999px;padding:2px 8px;white-space:nowrap;margin-left:auto}
+.ing{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer}
+.ing input{width:20px;height:20px;accent-color:var(--sc);flex:none}
+.ing .r-text{flex:1}
+/* Menú */
+.week{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px}
+.day.today{border-color:var(--sc);box-shadow:inset 0 0 0 1px var(--sc)}
+.day-name{margin:0;font-family:var(--f-display);font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+.day-name span{font-family:var(--f-body);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;background:var(--sc);color:var(--ink-on);border-radius:999px;padding:2px 8px}
+.slots{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.slot{border:1.5px dashed var(--line);background:var(--bg);border-radius:12px;padding:8px 10px;text-align:left;display:flex;flex-direction:column;gap:2px;min-height:52px}
+.slot.filled{border-style:solid;background:var(--surface-2)}
+.slot:hover{border-color:var(--sc)}
+.slot-meal{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.slot-val{font-weight:600;display:flex;gap:6px;overflow-wrap:anywhere}
+.slot-empty{color:var(--muted);font-size:14px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+/* Gasto */
+.spend{display:flex;flex-direction:column;gap:12px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.kpis div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpis span{font-size:12px;color:var(--muted);font-weight:600}
+.kpis strong{font-family:var(--f-display);font-size:20px;font-variant-numeric:tabular-nums}
+.kpis em{font-style:normal;font-size:12px;font-weight:600}
+.kpis em.up{color:var(--danger)} .kpis em.down{color:var(--accent)}
+@media (max-width:420px){.kpis strong{font-size:17px}}
+.bars{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;height:130px;align-items:end;border-bottom:1px solid var(--line);padding-top:16px}
+.bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;position:relative;gap:4px}
+.bf{width:100%;max-width:38px;background:var(--surface-2);border-radius:6px 6px 0 0;border:1px solid var(--line);border-bottom:0}
+.bar.now .bf{background:var(--sc);border-color:var(--sc)}
+.bv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.bl{position:absolute;bottom:-20px;font-size:11.5px;color:var(--muted);text-transform:capitalize}
+.spend .fine{margin-top:14px!important}
+.pu-total{font-weight:700;font-variant-numeric:tabular-nums}
+.pu-n{flex:1;min-width:0}
+.pu-p{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+/* Foto */
+.photo-box{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.photo-prev{width:110px;height:110px;border-radius:14px;background:var(--bg);border:1.5px dashed var(--line);display:grid;place-items:center;overflow:hidden;flex:none;color:var(--muted);font-size:13px}
+.photo-prev img{width:100%;height:100%;object-fit:cover}
+.photo-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-start;flex:1;min-width:160px}
+.photo-actions label.btn{cursor:pointer}
+
+/* Precios */
+.price-hint{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;font-size:13.5px;color:var(--muted);background:var(--bg);border-radius:12px;padding:10px 12px}
+.price-hint[hidden]{display:none}
+.price-hint p{margin:0}
+.price-hint strong{color:var(--fg)}
+.pr-stores{display:flex;flex-wrap:wrap;gap:6px}
+.pr-chip{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 10px;font-size:13.5px}
+.pr-chip strong{font-variant-numeric:tabular-nums}
+.pr-chip em{font-style:normal;color:var(--muted);font-size:12px}
+.pr-chip.best{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.pr-chip.best strong{color:var(--accent)}
+.price-tools{display:flex;flex-direction:column;gap:10px}
+.price-row{display:flex;gap:12px;padding:12px 14px;align-items:flex-start}
+.pr-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.pr-when{font-size:12.5px;color:var(--muted)}
+.pr-hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pr-hist li{display:grid;grid-template-columns:1fr auto 90px;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums;font-size:14px}
+.pr-hist em{font-style:normal;font-size:12.5px;text-align:right}
+.pr-hist em.up{color:var(--danger)} .pr-hist em.down{color:var(--accent)}
+.compare{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.compare summary{list-style:none;display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.compare summary::-webkit-details-marker{display:none}
+.compare summary>span:first-child{flex:1;display:flex;flex-direction:column}
+.cmp-sub{font-size:13.5px;color:var(--muted)}
+.compare[open] .pu-chev{transform:rotate(-135deg)}
+.cmp-rows{list-style:none;margin:0;padding:0 14px}
+.cmp-rows li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.cmp-st{font-weight:600;flex:1}
+.cmp-cov{font-size:12.5px;color:var(--muted)}
+.cmp-rows strong{font-variant-numeric:tabular-nums;min-width:72px;text-align:right}
+.cmp-rows li.best .cmp-st::after{content:"Más barato";margin-left:8px;font-size:11px;font-weight:700;background:var(--accent);color:#fff;border-radius:999px;padding:2px 7px}
+.cmp-tips{padding:4px 14px 6px}
+.cmp-tips .label{margin:6px 0}
+.cmp-tips ul{list-style:none;margin:0;padding:0}
+.cmp-tips li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.cmp-tips li span:last-child{color:var(--muted);text-align:right}
+.cmp-tips strong{color:var(--accent)}
+.compare .fine{padding:0 14px 12px;margin:0}
+.store-list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.store-list li{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 4px 14px;border-top:1px solid var(--line)}
+.store-list li:first-child{border-top:0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;z-index:60;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+@keyframes up{from{transform:translateY(24px);opacity:0}}
+@keyframes fade{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ---------- Cristal: translúcido sobre colores suaves ---------- */
+:root[data-skin^="cristal"]{--bg:#f3f6f5;--surface:rgba(255,255,255,.6);--surface-2:rgba(255,255,255,.42);--sheet:#ffffff;--fg:#17202b;--muted:#5d6976;--line:rgba(255,255,255,.75);--accent:#0f9d8a;--mustard:#ff8a65;--danger:#e0505a;--ink-on:#ffffff;
+  --m1:#b6efd9;--m2:#ffd4c0;--m3:#d8d0ff;--f-display:"Plus Jakarta Sans","Inter",system-ui,sans-serif;--f-body:"Plus Jakarta Sans","Inter",system-ui,sans-serif;--r:22px;--shadow:0 10px 30px -14px rgba(20,40,40,.25);--fline:rgba(20,30,40,.16)}
+@media (prefers-color-scheme:dark){:root[data-skin^="cristal"]:not([data-theme="light"]){--bg:#0e1316;--surface:rgba(34,44,50,.58);--surface-2:rgba(44,56,64,.48);--sheet:#182126;--fg:#eef4f3;--muted:#9fb1b6;--line:rgba(255,255,255,.12);--accent:#3fd6bf;--m1:#0b3b33;--m2:#4a2a20;--m3:#2a2552;--fline:rgba(255,255,255,.16)}}
+:root[data-skin^="cristal"][data-theme="dark"]{--bg:#0e1316;--surface:rgba(34,44,50,.58);--surface-2:rgba(44,56,64,.48);--sheet:#182126;--fg:#eef4f3;--muted:#9fb1b6;--line:rgba(255,255,255,.12);--accent:#3fd6bf;--m1:#0b3b33;--m2:#4a2a20;--m3:#2a2552;--fline:rgba(255,255,255,.16)}
+[data-skin^="cristal"] body{background:radial-gradient(at 12% 8%,var(--m1) 0,transparent 45%),radial-gradient(at 88% 18%,var(--m2) 0,transparent 45%),radial-gradient(at 55% 88%,var(--m3) 0,transparent 50%),var(--bg);background-attachment:fixed}
+[data-skin^="cristal"] .band{background:transparent!important;color:var(--fg)}
+[data-skin^="cristal"] .band h1{font-weight:800;letter-spacing:-.03em}
+[data-skin^="cristal"] .iconbtn,[data-skin^="cristal"] .pill,[data-skin^="cristal"] .shopping-banner{background:var(--surface);color:var(--fg);border:1px solid var(--line);backdrop-filter:blur(14px)}
+[data-skin^="cristal"] .pill.solid{background:var(--accent);color:#fff;border-color:transparent}
+[data-skin^="cristal"] .avatars img{border-color:var(--line)}
+[data-skin^="cristal"] .rows,[data-skin^="cristal"] .list-row,[data-skin^="cristal"] .space-card,[data-skin^="cristal"] .addbox,[data-skin^="cristal"] .tabs,[data-skin^="cristal"] .compare,[data-skin^="cristal"] .day,[data-skin^="cristal"] .recipe-card,[data-skin^="cristal"] .chip,[data-skin^="cristal"] .notice,[data-skin^="cristal"] .empty,[data-skin^="cristal"] .pantry-alert{background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);box-shadow:var(--shadow)}
+[data-skin^="cristal"] .rows>li+li{border-top:1px solid var(--line)}
+[data-skin^="cristal"] .addbar{background:transparent}
+[data-skin^="cristal"] .check svg{border-radius:50%;background:transparent;border-color:var(--muted)}
+[data-skin^="cristal"] .row-item.checked .check svg{background:var(--accent);border-color:var(--accent);color:#fff}
+[data-skin^="cristal"] .addbox button,[data-skin^="cristal"] .btn,[data-skin^="cristal"] .mini{background:var(--accent);color:#fff;border-radius:14px}
+[data-skin^="cristal"] .btn.quiet{background:var(--surface);color:var(--fg);border:1px solid var(--line)}
+[data-skin^="cristal"] .tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
+[data-skin^="cristal"] .lr-badge{background:var(--accent);color:#fff}
+[data-skin^="cristal"] .lr-emoji{background:var(--surface-2)}
+[data-skin^="cristal"] .sheet{background:var(--sheet)}
+[data-skin^="cristal"] .finish{background:var(--sheet)}
+[data-skin^="cristal"] .field input,[data-skin^="cristal"] .field select,[data-skin^="cristal"] .field textarea{background:var(--sheet);border-color:var(--fline)}
+[data-skin^="cristal"] .label .label-note,[data-skin^="cristal"] .r-who.me{color:var(--accent)}
+[data-skin^="cristal"] .finish .btn{background:var(--accent);color:#fff}
+[data-skin^="cristal"] .skin-opt{background:var(--sheet)}
+
+
+/* ---------- Cristal minimal ---------- */
+:root[data-skin="cristal-perla"]{--bg:#f2f2f3;--m1:#e6e6ea;--m2:#eeeef0;--m3:#e3e3e8;--accent:#151517;--fg:#151517;--muted:#6b6b70;--surface:rgba(255,255,255,.72);--surface-2:rgba(255,255,255,.5);--sheet:#ffffff;--line:rgba(255,255,255,.9);--fline:rgba(20,30,40,.14);--shadow:0 6px 22px -14px rgba(0,0,0,.18)}
+@media (prefers-color-scheme:dark){:root[data-skin="cristal-perla"]:not([data-theme="light"]){--bg:#0e0e0f;--m1:#1b1b1f;--m2:#161618;--m3:#1d1d22;--accent:#f2f2f3;--fg:#f2f2f3;--muted:#9a9aa0;--sheet:#17171a;--surface:rgba(32,35,38,.62);--surface-2:rgba(44,48,52,.5);--line:rgba(255,255,255,.08);--fline:rgba(255,255,255,.14);--shadow:0 6px 22px -14px rgba(0,0,0,.6)}}
+:root[data-skin="cristal-perla"][data-theme="dark"]{--bg:#0e0e0f;--m1:#1b1b1f;--m2:#161618;--m3:#1d1d22;--accent:#f2f2f3;--fg:#f2f2f3;--muted:#9a9aa0;--sheet:#17171a;--surface:rgba(32,35,38,.62);--surface-2:rgba(44,48,52,.5);--line:rgba(255,255,255,.08);--fline:rgba(255,255,255,.14);--shadow:0 6px 22px -14px rgba(0,0,0,.6)}
+[data-skin="cristal-perla"] .pill.solid,[data-skin="cristal-perla"] .addbox button,[data-skin="cristal-perla"] .btn,[data-skin="cristal-perla"] .mini,[data-skin="cristal-perla"] .tabs button[aria-selected="true"],[data-skin="cristal-perla"] .lr-badge,[data-skin="cristal-perla"] .finish .btn,[data-skin="cristal-perla"] .row-item.checked .check svg{color:var(--bg)}
+[data-skin="cristal-perla"] .btn.quiet{color:var(--fg)}
+[data-skin^="cristal-"] .band h1{font-weight:700}
+[data-skin^="cristal-"] .rows,[data-skin^="cristal-"] .list-row,[data-skin^="cristal-"] .space-card,[data-skin^="cristal-"] .addbox,[data-skin^="cristal-"] .tabs,[data-skin^="cristal-"] .compare,[data-skin^="cristal-"] .day,[data-skin^="cristal-"] .recipe-card,[data-skin^="cristal-"] .chip{backdrop-filter:blur(24px) saturate(1.2);-webkit-backdrop-filter:blur(24px) saturate(1.2)}
+
+[data-skin="cristal-perla"] .space-card .sc-top{background:var(--surface-2);color:var(--fg);border-bottom:1px solid var(--fline)}
+[data-skin="cristal-perla"] .space-card .avatars img{border-color:var(--bg)}
+[data-skin="cristal-perla"] .sc-shop{color:var(--fg)}
+
+/* ---- Web independiente ---- */
+html,body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+.band .wrap{padding-top:calc(18px + env(safe-area-inset-top,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.iconbtn.acc{padding:0;overflow:hidden;border-radius:50%}
+.iconbtn.acc img{width:100%;height:100%;object-fit:cover}
+.login-card{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.btn.google{background:#fff!important;color:#1f1f1f!important;border:1px solid #d6d6d9;font-weight:600}
+.g-logo{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;background:conic-gradient(#ea4335 0 25%,#fbbc05 0 50%,#34a853 0 75%,#4285f4 0)}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--fline,var(--line))}
+.lg-err{margin:0;color:var(--danger);font-size:14px}
+.lg-links{justify-content:space-between}
+.ac-photo{width:60px;height:60px;border-radius:50%;object-fit:cover;flex:none}
+.install-tip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.install-tip span{flex:1;min-width:180px}
+.code{color:var(--fg)!important}
+.invite-box{border-color:var(--fline,var(--line))!important;background:var(--surface-2)!important}
+</style>
+
+</head>
+<body>
+<header class="band" id="band"><div class="wrap" id="bandIn"></div></header>
+<main><div class="wrap" id="main"></div></main>
+<div id="sheetRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+/* ============ Config ============ */
+const APP_URL = ""; // filled after first publish
+const SPACE_COLORS = ["verde","tomate","ciruela","mar","azafran","pizarra"];
+const SPACE_EMOJI = ["🏠","🏡","👵","🏖️","⛺","🎉","🏢","🎄","🚐","❤️"];
+const LIST_EMOJI = ["🛒","🥦","💊","🧽","🎁","🍷","🐾","🛠️","👶","📦"];
+const CATS = ["Frutas y verduras","Carne y pescado","Lácteos y huevos","Panadería","Despensa","Bebidas","Congelados","Limpieza","Higiene","Bebé y mascotas","Otros"];
+const CATALOG = [
+ ["Plátanos","🍌",0],["Manzanas","🍎",0],["Naranjas","🍊",0],["Limones","🍋",0],["Fresas","🍓",0],["Uvas","🍇",0],["Sandía","🍉",0],["Melón","🍈",0],["Peras","🍐",0],["Melocotones","🍑",0],["Piña","🍍",0],["Kiwis","🥝",0],["Cerezas","🍒",0],["Mango","🥭",0],["Aguacates","🥑",0],["Tomates","🍅",0],["Lechuga","🥬",0],["Espinacas","🥬",0],["Pepino","🥒",0],["Calabacín","🥒",0],["Zanahorias","🥕",0],["Patatas","🥔",0],["Cebollas","🧅",0],["Ajos","🧄",0],["Pimientos","🫑",0],["Berenjena","🍆",0],["Brócoli","🥦",0],["Champiñones","🍄",0],["Maíz","🌽",0],
+ ["Pollo","🍗",1],["Carne picada","🥩",1],["Ternera","🥩",1],["Cerdo","🥩",1],["Jamón","🍖",1],["Embutido","🍖",1],["Bacon","🥓",1],["Salchichas","🌭",1],["Pescado","🐟",1],["Salmón","🐟",1],["Merluza","🐟",1],["Gambas","🦐",1],["Calamares","🦑",1],["Mejillones","🦪",1],
+ ["Leche","🥛",2],["Huevos","🥚",2],["Queso","🧀",2],["Queso rallado","🧀",2],["Yogures","🥛",2],["Mantequilla","🧈",2],["Nata","🥛",2],["Leche vegetal","🥛",2],
+ ["Pan","🍞",3],["Barra de pan","🥖",3],["Pan de molde","🍞",3],["Croissants","🥐",3],["Magdalenas","🧁",3],["Tortillas de trigo","🫓",3],
+ ["Arroz","🍚",4],["Pasta","🍝",4],["Harina","🌾",4],["Azúcar","🍬",4],["Sal","🧂",4],["Aceite de oliva","🫒",4],["Vinagre","🫙",4],["Tomate frito","🥫",4],["Garbanzos","🫘",4],["Lentejas","🫘",4],["Alubias","🫘",4],["Atún en lata","🥫",4],["Café","☕",4],["Té","🍵",4],["Cacao","🍫",4],["Chocolate","🍫",4],["Cereales","🥣",4],["Galletas","🍪",4],["Miel","🍯",4],["Mermelada","🫙",4],["Especias","🌶️",4],["Frutos secos","🥜",4],["Patatas fritas","🥔",4],["Palomitas","🍿",4],["Ketchup","🥫",4],["Mayonesa","🫙",4],
+ ["Agua","💧",5],["Zumo","🧃",5],["Refrescos","🥤",5],["Cerveza","🍺",5],["Vino","🍷",5],["Cava","🥂",5],
+ ["Helado","🍨",6],["Pizza","🍕",6],["Verduras congeladas","🥦",6],["Croquetas","🧆",6],["Hielo","🧊",6],
+ ["Detergente","🧴",7],["Suavizante","🧴",7],["Lavavajillas","🧽",7],["Estropajos","🧽",7],["Lejía","🧴",7],["Papel de cocina","🧻",7],["Bolsas de basura","🗑️",7],["Papel de aluminio","📦",7],
+ ["Papel higiénico","🧻",8],["Champú","🧴",8],["Gel de ducha","🧼",8],["Jabón de manos","🧼",8],["Pasta de dientes","🪥",8],["Cepillo de dientes","🪥",8],["Desodorante","🧴",8],["Pañuelos","🤧",8],["Compresas","🌸",8],["Cuchillas","🪒",8],
+ ["Pañales","👶",9],["Toallitas","👶",9],["Potitos","🍼",9],["Comida de perro","🐕",9],["Comida de gato","🐈",9],["Arena para gato","🐈",9],
+ ["Pilas","🔋",10],["Bombillas","💡",10],["Velas","🕯️",10]
+];
+const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+const CAT_BY = new Map(CATALOG.map(c=>[norm(c[0]),c]));
+const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/* ============ State ============ */
+const S = {
+  db:null, user:null, me:null, canWrite:true, ready:false, failed:false,
+  spaces:new Map(), memberships:[], lists:new Map(), items:new Map(),
+  view:{name:"home"}, itemsSpace:null, itemsUnsub:null, purchUnsub:null, purchases:new Map(), recipes:new Map(), pantry:new Map(), prices:new Map(), priceQ:"", menu:null, extraUnsubs:[], storeMode:false, mineOnly:false, query:"",
+  pendingJoin:null, profiles:{}
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const colorVar = c => `var(--s-${SPACE_COLORS.includes(c)?c:"verde"})`;
+const ICON = {
+  back:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg>',
+  dots:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.4 11.2a1.5 1.5 0 001.5 1.2h8.6a1.5 1.5 0 001.5-1.1L21 8H6.2"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg>',
+  store:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10 18h4"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  join:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>'
+};
+
+function toast(msg){
+  const el=document.createElement("div");el.className="toast";el.textContent=msg;
+  if(document.getElementById("finishBar")) el.style.bottom="calc(84px + env(safe-area-inset-bottom,0px))";
+  $("#toastRoot").replaceChildren(el);setTimeout(()=>el.remove(),2600);
+}
+function err(e){console.warn(e);
+  if(e&&e.code==="quota_exceeded") toast("Se ha llenado el espacio de datos. Borra listas antiguas.");
+  else if(e&&e.code==="invalid_argument"&&!S.canWrite) toast("Solo tienes permiso de lectura.");
+  else toast("No se ha podido guardar. Inténtalo de nuevo.");
+}
+
+/* ============ Derived data ============ */
+const mySpaceIds = () => new Set(S.memberships.filter(m=>m.uid===S.me).map(m=>m.spaceId));
+const membersOf = sid => S.memberships.filter(m=>m.spaceId===sid).sort((a,b)=>(a.joinedAt||0)-(b.joinedAt||0));
+const listsOf = sid => [...S.lists.values()].filter(l=>l.spaceId===sid).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+const itemsOf = lid => [...S.items.values()].filter(i=>i.listId===lid);
+async function getProfiles(ids){
+  if(HAS_FIREBASE) return S.profiles;
+  if(!S.user||!ids.length) return {};
+  try{ const p=await S.user.profiles([...new Set(ids)]); Object.assign(S.profiles,p); return p;}catch(e){return {}}
+}
+const pname = (id) => (S.profiles[id]&&S.profiles[id].name) || (id===S.me?"Tú":"Alguien");
+
+/* ============ Modo prueba (fuera de claude.ai) ============
+   Base de datos local mínima que imita la de claude.ai y guarda en este navegador. */
+function makeLocalDB(){
+  const KEY="la-cesta-demo"; let data={};
+  try{data=JSON.parse(localStorage.getItem(KEY)||"{}");}catch(e){}
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}};
+  const listeners=new Set();
+  const notify=()=>setTimeout(()=>listeners.forEach(l=>l()),0);
+  const rid=()=>Math.random().toString(36).slice(2,12)+Date.now().toString(36).slice(-4);
+  const snapDoc=(id,body)=>({id,exists:!!body,data:()=>body?{...body}:undefined,metadata:{fromCache:false,hasPendingWrites:false}});
+  function query(coll,filters){
+    const run=()=>{const docs=Object.entries(data).filter(([p,b])=>{const i=p.lastIndexOf("/");return p.slice(0,i)===coll&&filters.every(([f,op,v])=>op==="=="?b[f]===v:true);}).map(([p,b])=>snapDoc(p.slice(p.lastIndexOf("/")+1),b));return {docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:{fromCache:false,hasPendingWrites:false}};};
+    return {
+      where:(f,op,v)=>query(coll,[...filters,[f,op,v]]),
+      get:async()=>run(),
+      onSnapshot:(next)=>{const l=()=>next(run());listeners.add(l);setTimeout(l,0);return ()=>listeners.delete(l);}
+    };
+  }
+  function doc(path){return {
+    id:path.slice(path.lastIndexOf("/")+1),path,
+    get:async()=>snapDoc(path.slice(path.lastIndexOf("/")+1),data[path]),
+    set:async b=>{data[path]=JSON.parse(JSON.stringify(b));save();notify();},
+    update:async b=>{if(!data[path])throw{code:"invalid_argument"};data[path]={...data[path],...b};save();notify();},
+    delete:async()=>{delete data[path];save();notify();},
+    onSnapshot:(next)=>{const l=()=>next(snapDoc(path.slice(path.lastIndexOf("/")+1),data[path]));listeners.add(l);setTimeout(l,0);return ()=>listeners.delete(l);}
+  };}
+  function collection(path){const q=query(path,[]);return {...q,path,doc:id=>doc(path+"/"+(id||rid())),add:async b=>{const d=doc(path+"/"+rid());await d.set(b);return d;}};}
+  window.addEventListener("storage",e=>{if(e.key===KEY){try{data=JSON.parse(e.newValue||"{}");}catch(x){}notify();}});
+  return {doc,collection};
+}
+const localUser={id:async()=>"yo",can:async()=>true,profiles:async ids=>Object.fromEntries([].concat(ids).map(id=>[id,{id,name:id==="yo"?"Tú":"Familiar",avatarUrl:avatarSVG(id==="yo"?"T":"F"),isMe:id==="yo"}]))};
+function avatarSVG(t){return "data:image/svg+xml,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#e2a92b"/><text x="16" y="21" font-family="sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#1c2420">${t}</text></svg>`);}
+
+/* ============ Firebase ============
+   Estructura en Firestore (todo lo de un espacio cuelga de él):
+   users/{uid}                     perfil (nombre, foto)
+   users/{uid}/spaces/{sid}        índice de mis espacios
+   invites/{code}                  código de invitación -> spaceId
+   spaces/{sid}                    datos del espacio
+   spaces/{sid}/members/{uid}      miembros
+   spaces/{sid}/{lists|items|purchases|recipes|pantry|prices}/{id}
+   spaces/{sid}/meta/menu          menú semanal
+*/
+const HAS_FIREBASE = typeof firebase!=="undefined" && typeof FIREBASE_CONFIG==="object" && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && !/PEGA_AQUI/i.test(FIREBASE_CONFIG.apiKey);
+const SCOPED = new Set(["lists","items","purchases","recipes","pantry","prices"]);
+
+/* Escrituras «suaves»: sin conexión, Firestore las guarda en el móvil y las sube al volver la cobertura.
+   No esperamos al servidor para que la app siga respondiendo en el súper. */
+function soft(p){
+  p.catch(e=>console.warn("Escritura pendiente o rechazada:",e));
+  if(navigator.onLine!==false) return p;
+  return Promise.race([p,new Promise(r=>setTimeout(r,600))]);
+}
+function makeFirebaseDB(fs){
+  const sidFor=(coll,id,data)=>{
+    if(data&&data.spaceId) return data.spaceId;
+    if(coll==="prices"&&id.includes("__")) return id.split("__")[0];
+    const m=S[coll]; const o=m&&m.get&&m.get(id); if(o&&o.spaceId) return o.spaceId;
+    return S.itemsSpace||S.view.spaceId;
+  };
+  const phys=(path,data)=>{
+    const i=path.indexOf("/"); const coll=path.slice(0,i), id=path.slice(i+1);
+    if(coll==="memberships"){ const [sid,uid]=id.split("__"); return `spaces/${sid}/members/${uid}`; }
+    if(coll==="menus") return `spaces/${id}/meta/menu`;
+    if(SCOPED.has(coll)) return `spaces/${sidFor(coll,id,data)}/${coll}/${id}`;
+    return path;
+  };
+  const newId=()=>fs.collection("_").doc().id;
+  const wrapDoc=path=>({
+    id:path.slice(path.lastIndexOf("/")+1), path,
+    get:()=>fs.doc(phys(path)).get(),
+    set:d=>soft(fs.doc(phys(path,d)).set(d)),
+    update:d=>soft(fs.doc(phys(path,d)).update(d)),
+    delete:()=>soft(fs.doc(phys(path)).delete()),
+    onSnapshot:(n,e)=>fs.doc(phys(path)).onSnapshot(n,e)
+  });
+  const wrapColl=(coll,sid)=>{
+    const p=sid&&SCOPED.has(coll)?`spaces/${sid}/${coll}`:coll;
+    return {
+      path:p,
+      where:(f,op,v)=>(f==="spaceId"&&op==="==")?wrapColl(coll,v):wrapColl(coll,sid),
+      onSnapshot:(n,e)=>fs.collection(p).onSnapshot(n,e),
+      get:()=>fs.collection(p).get(),
+      doc:id=>wrapDoc(coll+"/"+(id||newId())),
+      add:async d=>{ const r=wrapDoc(coll+"/"+newId()); await r.set(d); return r; }
+    };
+  };
+  return { doc:wrapDoc, collection:c=>wrapColl(c,null) };
+}
+
+/* ---- Perfiles: nombre y foto guardados en cada miembro ---- */
+function hueOf(s){let h=0;for(const ch of String(s))h=(h*31+ch.charCodeAt(0))%360;return h;}
+function avatarFor(uid,name){
+  const t=(name||"?").trim().charAt(0).toUpperCase()||"?";
+  return "data:image/svg+xml,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="hsl(${hueOf(uid)},45%,78%)"/><text x="16" y="21" font-family="sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#1c1c1e">${t.replace(/[<&>]/g,"")}</text></svg>`);
+}
+function setProfile(uid,name,photo){ S.profiles[uid]={id:uid,name:name||"",avatarUrl:photo||avatarFor(uid,name)}; }
+function rebuildMembers(){
+  S.memberships=[].concat(...S.memberMap.values());
+  S.memberships.forEach(m=>setProfile(m.uid,m.name,m.photo));
+  if(S.me) setProfile(S.me,S.meName,S.mePhoto);
+}
+
+/* ---- Suscripciones a cada uno de mis espacios ---- */
+function watchSpace(sid){
+  if(S.spaceWatch.has(sid)) return;
+  const fs=S.fs, un=[];
+  const denied=e=>{ console.warn(e); if(e&&e.code==="permission-denied") dropSpace(sid,true); };
+  un.push(fs.doc("spaces/"+sid).onSnapshot(s=>{ if(s.exists){ S.spaces.set(sid,{id:sid,...s.data()}); refresh(); } else dropSpace(sid,true); },denied));
+  un.push(fs.collection(`spaces/${sid}/members`).onSnapshot(s=>{ S.memberMap.set(sid,s.docs.map(d=>({...d.data(),id:sid+"__"+d.id,spaceId:sid,uid:d.id}))); rebuildMembers(); refresh(); },denied));
+  un.push(fs.collection(`spaces/${sid}/lists`).onSnapshot(s=>{
+    for(const [k,v] of S.lists) if(v.spaceId===sid) S.lists.delete(k);
+    s.docs.forEach(d=>S.lists.set(d.id,{...d.data(),id:d.id,spaceId:sid})); refresh(); },denied));
+  S.spaceWatch.set(sid,un);
+}
+function dropSpace(sid,cleanIndex){
+  (S.spaceWatch.get(sid)||[]).forEach(u=>{try{u()}catch(e){}});
+  S.spaceWatch.delete(sid); S.spaces.delete(sid); S.memberMap.delete(sid);
+  for(const [k,v] of S.lists) if(v.spaceId===sid) S.lists.delete(k);
+  rebuildMembers();
+  if(cleanIndex&&S.me) S.fs.doc(`users/${S.me}/spaces/${sid}`).delete().catch(()=>{});
+  refresh();
+}
+
+async function bootFirebase(){
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const fs=firebase.firestore();
+  try{ fs.settings({ignoreUndefinedProperties:true}); }catch(e){}
+  try{ await fs.enablePersistence({synchronizeTabs:true}); }catch(e){ console.info("Sin modo sin conexión en este navegador:",e&&e.code); }
+  S.fs=fs; S.db=makeFirebaseDB(fs);
+  S.spaceWatch=new Map(); S.memberMap=new Map();
+  try{ await firebase.auth().getRedirectResult(); }catch(e){ S.loginError=authMsg(e); }
+  firebase.auth().onAuthStateChanged(u=>{ if(u) onSignedIn(u); else { S.me=null; S.needLogin=true; S.authReady=true; render(); } });
+}
+function onSignedIn(u){
+  S.needLogin=false; S.authReady=true; S.loginError="";
+  S.me=u.uid; S.meName=u.displayName||(u.email||"").split("@")[0]||"Yo"; S.mePhoto=u.photoURL||"";
+  setProfile(S.me,S.meName,S.mePhoto);
+  S.fs.doc("users/"+S.me).set({name:S.meName,photo:S.mePhoto,lastSeen:Date.now()},{merge:true}).catch(()=>{});
+  let first=true;
+  S.indexUnsub=S.fs.collection(`users/${S.me}/spaces`).onSnapshot(snap=>{
+    const ids=new Set(snap.docs.map(d=>d.id));
+    ids.forEach(watchSpace);
+    [...S.spaceWatch.keys()].filter(k=>!ids.has(k)).forEach(k=>dropSpace(k,false));
+    S.ready=true; refresh();
+    if(first){ first=false; syncMyProfile(ids); const pj=takePendingJoin(); if(pj) openJoin(pj); }
+  },e=>{ console.warn(e); S.ready=true; refresh(); });
+  render();
+}
+/* Mantiene mi nombre y foto al día en los espacios donde estoy */
+function syncMyProfile(ids){
+  ids.forEach(sid=>S.fs.doc(`spaces/${sid}/members/${S.me}`).update({name:S.meName,photo:S.mePhoto}).catch(()=>{}));
+}
+function takePendingJoin(){
+  let c=S.pendingJoin; S.pendingJoin=null;
+  try{ if(!c) c=sessionStorage.getItem("pendingJoin"); sessionStorage.removeItem("pendingJoin"); }catch(e){}
+  return c||null;
+}
+
+/* ---- Crear, unirse, salir y borrar espacios ---- */
+async function fbCreateSpace({name,emoji,color}){
+  const fs=S.fs; let code=makeCode();
+  for(let k=0;k<5;k++){ const g=await fs.doc("invites/"+code).get(); if(!g.exists) break; code=makeCode(); }
+  const ref=fs.collection("spaces").doc(); const sid=ref.id, now=Date.now();
+  await ref.set({name,emoji,color,code,createdBy:S.me,createdAt:now});
+  await fs.doc(`spaces/${sid}/members/${S.me}`).set({code,role:"creator",joinedAt:now,name:S.meName,photo:S.mePhoto});
+  await fs.doc("invites/"+code).set({spaceId:sid});
+  await fs.doc(`spaces/${sid}/lists/${fs.collection("_").doc().id}`).set({spaceId:sid,name:"Supermercado",emoji:"🛒",createdAt:now,createdBy:S.me});
+  await fs.doc(`users/${S.me}/spaces/${sid}`).set({joinedAt:now});
+  return sid;
+}
+async function fbJoinByCode(code){
+  const fs=S.fs; const g=await fs.doc("invites/"+code).get();
+  if(!g.exists) return {ok:false,msg:"No hay ningún espacio con ese código. Revisa que esté bien escrito."};
+  const sid=g.data().spaceId;
+  if(mySpaceIds().has(sid)) return {ok:true,sid,already:true};
+  try{ await fs.doc(`spaces/${sid}/members/${S.me}`).set({code,role:"member",joinedAt:Date.now(),name:S.meName,photo:S.mePhoto}); }
+  catch(e){ console.warn(e); return {ok:false,msg:"No se ha podido entrar en el espacio. Pide un enlace nuevo a quien te invitó."}; }
+  await fs.doc(`users/${S.me}/spaces/${sid}`).set({joinedAt:Date.now()});
+  return {ok:true,sid};
+}
+async function fbLeaveSpace(sid){
+  const sp=S.spaces.get(sid);
+  if(sp&&sp.shopping&&sp.shopping.uid===S.me){ try{ await S.fs.doc("spaces/"+sid).update({shopping:null}); }catch(e){} }
+  await S.fs.doc(`spaces/${sid}/members/${S.me}`).delete();
+  await S.fs.doc(`users/${S.me}/spaces/${sid}`).delete();
+}
+async function fbDeleteSpace(sid){
+  const fs=S.fs; const sp=S.spaces.get(sid)||(await fs.doc("spaces/"+sid).get()).data()||{};
+  for(const coll of ["items","purchases","recipes","pantry","prices","lists","meta"]){
+    try{ const q=await fs.collection(`spaces/${sid}/${coll}`).get(); for(const d of q.docs) await d.ref.delete(); }catch(e){ console.warn(coll,e); }
+  }
+  if(sp.code){ try{ await fs.doc("invites/"+sp.code).delete(); }catch(e){} }
+  const mem=await fs.collection(`spaces/${sid}/members`).get();
+  for(const d of mem.docs) if(d.id!==S.me) await d.ref.delete();
+  await fs.doc("spaces/"+sid).delete();
+  await fs.doc(`spaces/${sid}/members/${S.me}`).delete();
+  await fs.doc(`users/${S.me}/spaces/${sid}`).delete();
+}
+
+/* ---- Pantalla de entrada ---- */
+function authMsg(e){
+  const c=e&&e.code||"";
+  if(c.includes("popup-closed")||c.includes("cancelled-popup")) return "";
+  if(c.includes("unauthorized-domain")) return "Esta web no está autorizada en Firebase. Añade este dominio en Authentication › Configuración › Dominios autorizados.";
+  if(c.includes("invalid-credential")||c.includes("wrong-password")||c.includes("user-not-found")) return "Correo o contraseña incorrectos.";
+  if(c.includes("email-already-in-use")) return "Ya hay una cuenta con ese correo. Pulsa «Entrar».";
+  if(c.includes("weak-password")) return "La contraseña debe tener al menos 6 caracteres.";
+  if(c.includes("invalid-email")) return "Ese correo no es válido.";
+  if(c.includes("operation-not-allowed")) return "Este método de entrada no está activado en Firebase (Authentication › Método de inicio de sesión).";
+  if(c.includes("network")) return "No hay conexión. Comprueba internet e inténtalo otra vez.";
+  if(c.includes("too-many-requests")) return "Demasiados intentos. Espera un momento.";
+  return "No se ha podido entrar ("+(c||"error")+").";
+}
+function paintLogin(){
+  setBand("var(--accent)",`<div class="band-top"><span class="crumb">La Cesta Familiar</span></div>
+    <h1>Hola 👋</h1><p class="sub">La lista de la compra de tu familia, compartida y siempre al día.</p>`);
+  const pj=S.pendingJoin||(()=>{try{return sessionStorage.getItem("pendingJoin")}catch(e){return null}})();
+  const dyn=$("#dyn"); if(!dyn) return;
+  if(!S.authReady){ dyn.innerHTML=`<div class="empty"><p class="e-big">Cargando…</p></div>`; return; }
+  const mode=S.loginMode||"google";
+  dyn.innerHTML=`
+    ${pj?`<div class="notice"><strong>Te han invitado a un espacio.</strong> Entra con tu cuenta y te unirás automáticamente.</div>`:""}
+    <div class="login-card">
+      <button class="btn block google" id="gIn"><span class="g-logo" aria-hidden="true">G</span>Entrar con Google</button>
+      <div class="or"><span>o con tu correo</span></div>
+      <form id="fLogin" class="item-form" autocomplete="on">
+        ${mode==="signup"?`<div class="field"><label for="lgName">Tu nombre</label><input id="lgName" autocomplete="name" maxlength="40" placeholder="Así te verá la familia"></div>`:""}
+        <div class="field"><label for="lgMail">Correo</label><input id="lgMail" type="email" autocomplete="email" inputmode="email"></div>
+        <div class="field"><label for="lgPass">Contraseña</label><input id="lgPass" type="password" autocomplete="${mode==="signup"?"new-password":"current-password"}" minlength="6"></div>
+        <p id="lgErr" class="lg-err" ${S.loginError?"":"hidden"}>${esc(S.loginError||"")}</p>
+        <button class="btn block" type="submit">${mode==="signup"?"Crear cuenta":"Entrar"}</button>
+      </form>
+      <div class="row lg-links">
+        <button class="linkish" id="lgSwap">${mode==="signup"?"Ya tengo cuenta":"Crear una cuenta nueva"}</button>
+        ${mode==="signup"?"":`<button class="linkish" id="lgForgot">He olvidado la contraseña</button>`}
+      </div>
+    </div>`;
+  const showErr=m=>{const e=$("#lgErr"); e.textContent=m; e.hidden=!m;};
+  $("#gIn").onclick=async()=>{
+    const p=new firebase.auth.GoogleAuthProvider(); p.setCustomParameters({prompt:"select_account"});
+    try{ await firebase.auth().signInWithPopup(p); }
+    catch(e){
+      if(/popup-blocked|operation-not-supported|web-storage-unsupported/.test(e.code||"")){ try{ await firebase.auth().signInWithRedirect(p); return; }catch(x){ e=x; } }
+      showErr(authMsg(e));
+    }
+  };
+  $("#lgSwap").onclick=()=>{ S.loginMode=mode==="signup"?"login":"signup"; S.loginError=""; paintLogin(); };
+  const fg=$("#lgForgot"); if(fg) fg.onclick=async()=>{ const m=$("#lgMail").value.trim(); if(!m) return showErr("Escribe tu correo y vuelve a pulsar «He olvidado la contraseña».");
+    try{ await firebase.auth().sendPasswordResetEmail(m); toast("Te hemos enviado un correo para cambiarla"); }catch(e){ showErr(authMsg(e)); } };
+  $("#fLogin").onsubmit=async e=>{ e.preventDefault();
+    const m=$("#lgMail").value.trim(), pw=$("#lgPass").value; if(!m||!pw) return showErr("Escribe tu correo y tu contraseña.");
+    const b=$("#fLogin .btn"); b.disabled=true;
+    try{
+      if(mode==="signup"){ const cred=await firebase.auth().createUserWithEmailAndPassword(m,pw); const n=($("#lgName").value||"").trim(); if(n){ await cred.user.updateProfile({displayName:n}); onSignedIn(cred.user); } }
+      else await firebase.auth().signInWithEmailAndPassword(m,pw);
+    }catch(x){ b.disabled=false; showErr(authMsg(x)); }
+  };
+  wireForms(dyn);
+}
+
+/* ---- Cuenta e instalación ---- */
+let installPrompt=null;
+window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); installPrompt=e; });
+const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+function installHTML(){
+  if(isStandalone()) return "";
+  if(installPrompt) return `<button class="btn block" id="acInstall">Instalar la app en este dispositivo</button>`;
+  if(isIOS()) return `<div class="notice"><strong>Para instalarla en el iPhone:</strong> abre esta página en Safari, toca el botón <strong>Compartir</strong> (el cuadrado con la flecha) y elige <strong>«Añadir a pantalla de inicio»</strong>.</div>`;
+  return `<div class="notice"><strong>Para instalarla:</strong> en el menú del navegador (⋮) elige <strong>«Instalar aplicación»</strong> o <strong>«Añadir a pantalla de inicio»</strong>.</div>`;
+}
+function openAccount(){
+  const u=firebase.auth().currentUser;
+  sheet("var(--accent)",`<div class="item-head"><img referrerpolicy="no-referrer" class="ac-photo" referrerpolicy="no-referrer" src="${esc(S.profiles[S.me]?.avatarUrl||"")}" alt=""><div><h2>${esc(S.meName)}</h2><p>${esc(u&&u.email||"")}</p></div></div>
+    <form id="fName" class="field"><label for="acName">Cómo te ve la familia</label>
+      <div class="addbox" style="box-shadow:none"><input id="acName" maxlength="40" value="${esc(S.meName)}"><button type="submit">Guardar</button></div></form>
+    ${installHTML()}
+    <button class="btn quiet block" id="acOut">Cerrar sesión</button>`,el=>{
+      el.querySelector("#fName").onsubmit=async e=>{ e.preventDefault(); const n=el.querySelector("#acName").value.trim(); if(!n) return;
+        try{ await firebase.auth().currentUser.updateProfile({displayName:n}); S.meName=n; setProfile(S.me,n,S.mePhoto);
+          await S.fs.doc("users/"+S.me).set({name:n},{merge:true}); syncMyProfile(mySpaceIds()); closeSheet(); toast("Nombre guardado"); refresh(); }catch(x){ err(x); } };
+      const ins=el.querySelector("#acInstall"); if(ins) ins.onclick=async()=>{ installPrompt.prompt(); try{ await installPrompt.userChoice; }catch(e){} installPrompt=null; closeSheet(); };
+      el.querySelector("#acOut").onclick=async()=>{ try{ await firebase.auth().signOut(); }catch(e){} location.reload(); };
+    });
+}
+
+function wireInstallTip(root){
+  const h=root.querySelector("#tipHow"), n=root.querySelector("#tipNo");
+  if(h) h.onclick=()=>{ if(installPrompt){ installPrompt.prompt(); installPrompt=null; return; }
+    sheet("var(--accent)",`<h2>Instalar La Cesta</h2>${installHTML()||"<p>Ya la tienes instalada.</p>"}<button class="btn quiet block" id="ihOk">Entendido</button>`,el=>{ el.querySelector("#ihOk").onclick=closeSheet; const i=el.querySelector("#acInstall"); if(i) i.onclick=()=>{ installPrompt&&installPrompt.prompt(); closeSheet(); }; }); };
+  if(n) n.onclick=()=>{ try{ localStorage.setItem("installTipOff","1"); }catch(e){} n.closest(".notice").remove(); };
+}
+/* ============ Boot ============ */
+async function boot(){
+  const m=location.hash.match(/^#join-([A-Za-z0-9]{6})$/);
+  if(m){ S.pendingJoin=m[1].toUpperCase(); try{sessionStorage.setItem("pendingJoin",S.pendingJoin);}catch(e){}
+    try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){} }
+  if(HAS_FIREBASE){ S.authReady=false; S.needLogin=true; render(); try{ await bootFirebase(); }catch(e){ console.error(e); S.needLogin=false; S.failed=true; render(); } return; }
+  render();
+  try{
+    const db=makeLocalDB(), user=localUser; S.demo=true;
+    S.user=user; S.db=db; S.me=await user.id();
+    db.collection("spaces").onSnapshot(snap=>{S.spaces=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));S.ready=true;refresh();},e=>console.warn(e));
+    db.collection("memberships").onSnapshot(snap=>{S.memberships=snap.docs.map(d=>({id:d.id,...d.data()}));refresh();},e=>console.warn(e));
+    db.collection("lists").onSnapshot(snap=>{S.lists=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));refresh();},e=>console.warn(e));
+    if(S.pendingJoin){ openJoin(S.pendingJoin); }
+  }catch(e){console.warn(e);S.failed=true;render();}
+}
+function subscribeItems(sid){
+  if(S.itemsSpace===sid) return;
+  if(S.itemsUnsub){S.itemsUnsub();S.itemsUnsub=null;}
+  if(S.purchUnsub){S.purchUnsub();S.purchUnsub=null;}
+  S.extraUnsubs.forEach(u=>{try{u()}catch(e){}}); S.extraUnsubs=[];
+  S.itemsSpace=sid;S.items=new Map();S.purchases=new Map();S.recipes=new Map();S.pantry=new Map();S.prices=new Map();S.menu=null;
+  if(!sid||!S.db) return;
+  S.itemsUnsub=S.db.collection("items").where("spaceId","==",sid).onSnapshot(snap=>{
+    S.items=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));refresh();
+  },e=>console.warn(e));
+  S.purchUnsub=S.db.collection("purchases").where("spaceId","==",sid).onSnapshot(snap=>{
+    S.purchases=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));refresh();
+  },e=>console.warn(e));
+  const mapSub=(coll,key)=>S.db.collection(coll).where("spaceId","==",sid).onSnapshot(snap=>{S[key]=new Map(snap.docs.map(d=>[d.id,{id:d.id,...d.data()}]));refresh();},e=>console.warn(e));
+  S.extraUnsubs.push(mapSub("recipes","recipes"),mapSub("pantry","pantry"),mapSub("prices","prices"));
+  S.extraUnsubs.push(S.db.doc("menus/"+sid).onSnapshot(snap=>{S.menu=snap.exists?snap.data():null;refresh();},e=>console.warn(e)));
+}
+
+/* ============ Navigation ============ */
+function go(view){
+  if(view.name!=="list"&&S.storeMode){ S.storeMode=false; S.mineOnly=false; try{wakeLock&&wakeLock.release();}catch(e){} wakeLock=null; }
+  document.body.classList.remove("store");
+  S.view=view; S.query="";
+  if(view.name==="space"||view.name==="list") subscribeItems(view.spaceId); else subscribeItems(null);
+  render(); window.scrollTo(0,0);
+}
+
+/* render = mount the view skeleton; refresh = repaint data regions */
+function render(){
+  const v=S.view;
+  if(v.name==="list") mountList(); else { $("#main").innerHTML='<div id="dyn"></div>'; }
+  refresh();
+}
+let refreshToken=0;
+async function refresh(){
+  const t=++refreshToken; const v=S.view;
+  if(HAS_FIREBASE&&!S.me&&!S.failed){ if(v.name!=="home"){ S.view={name:"home"}; return render(); } return paintLogin(); }
+  // validate view still exists
+  if(S.ready && v.name!=="home"){
+    const sp=S.spaces.get(v.spaceId);
+    const member=sp&&mySpaceIds().has(v.spaceId);
+    if(member&&S.grace===v.spaceId) S.grace=null;
+    if(!member){ if(S.grace===v.spaceId) return; S.view={name:"home"}; subscribeItems(null); return render(); }
+    if(v.name==="list"){ const l=S.lists.get(v.listId);
+      if(l&&S.graceList===v.listId) S.graceList=null;
+      if(!l){ if(S.graceList===v.listId) return; S.view={name:"space",spaceId:v.spaceId}; return render(); } }
+  }
+  // collect profiles to resolve
+  let ids=[];
+  if(v.name==="home") mySpaceIds().forEach(sid=>membersOf(sid).slice(0,5).forEach(m=>ids.push(m.uid)));
+  else { membersOf(v.spaceId).forEach(m=>ids.push(m.uid)); if(v.name==="list") itemsOf(v.listId).forEach(i=>{i.addedBy&&ids.push(i.addedBy); i.assignee&&ids.push(i.assignee);}); }
+  mySpaceIds().forEach(sid=>{const sh=shopperOf(S.spaces.get(sid)); if(sh) ids.push(sh.uid);});
+  if(ids.length) await getProfiles(ids);
+  if(t!==refreshToken) return;
+  if(v.name==="home") paintHome(); else if(v.name==="space") paintSpace(); else paintList();
+}
+
+function avatarsHTML(uids,max=5){
+  const shown=uids.slice(0,max);
+  return `<div class="avatars">${shown.map(u=>`<img referrerpolicy="no-referrer" alt="${esc(pname(u))}" title="${esc(pname(u))}" src="${esc(S.profiles[u]?.avatarUrl||"")}">`).join("")}${uids.length>max?`<span class="more">+${uids.length-max}</span>`:""}</div>`;
+}
+function setBand(color,html){ const b=$("#band"); b.style.setProperty("--sc",color); document.documentElement.style.setProperty("--sc",color); $("#bandIn").innerHTML=html; }
+
+/* ============ Home ============ */
+function paintHome(){
+  setBand("var(--accent)",`
+    <div class="band-top"><span class="crumb">La Cesta Familiar</span>${HAS_FIREBASE&&S.me?`<button class="iconbtn acc" id="bAcc" aria-label="Tu cuenta"><img referrerpolicy="no-referrer" src="${esc(S.profiles[S.me]?.avatarUrl||"")}" alt=""></button>`:""}</div>
+    <h1>Tus espacios</h1>
+    <p class="sub">Cada espacio es una casa o un grupo. Dentro tiene sus propias listas y su propio enlace para invitar.</p>
+    <div class="band-actions">
+      <button class="pill solid" id="bNew">${ICON.plus}Nuevo espacio</button>
+      <button class="pill" id="bJoin">${ICON.join}Unirme con un enlace</button>
+    </div>`);
+  $("#bNew").onclick=openNewSpace; $("#bJoin").onclick=()=>openJoin("");
+  const acc=$("#bAcc"); if(acc) acc.onclick=openAccount;
+  const dyn=$("#dyn");
+  if(S.failed){ dyn.innerHTML=`<div class="notice"><strong>No se pueden cargar los espacios.</strong> Comprueba la conexión y recarga la página. Si acabas de subir la app, revisa que <code>firebase-config.js</code> tenga los datos de tu proyecto.</div>`; return; }
+  if(!S.ready){ dyn.innerHTML=`<div class="empty"><p class="e-big">Cargando tus espacios…</p></div>`; return; }
+  const mine=[...mySpaceIds()].map(id=>S.spaces.get(id)).filter(Boolean).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  let html = S.canWrite?"":`<div class="notice"><strong>Acceso de solo lectura.</strong> Para añadir cosas, el dueño de la app debe compartirla contigo como Editor.</div>`;
+  if(S.demo) html+=`<div class="notice"><strong>Modo prueba.</strong> Todavía no está conectada a Firebase, así que los datos se guardan solo en este navegador. Rellena <code>firebase-config.js</code> siguiendo el LEEME.</div>`;
+  let tipOff=false; try{ tipOff=localStorage.getItem("installTipOff")==="1"; }catch(e){}
+  if(HAS_FIREBASE&&!isStandalone()&&!tipOff) html+=`<div class="notice install-tip"><span>📲 <strong>Instálala en el móvil</strong> para abrirla como una app más.</span><button class="linkish" id="tipHow">Cómo</button><button class="linkish" id="tipNo">Ahora no</button></div>`;
+  if(!mine.length){
+    html+=`<div class="empty">
+      <div style="font-size:44px">🧺</div>
+      <p class="e-big">Aún no tienes ningún espacio</p>
+      <p>Crea uno para tu casa y comparte su enlace con la familia. También puedes unirte al espacio de otra persona con su enlace o código.</p>
+      <div class="row" style="justify-content:center"><button class="btn" id="eNew">${ICON.plus}Crear un espacio</button><button class="btn quiet" id="eJoin">Tengo un enlace</button></div>
+    </div>`;
+    dyn.innerHTML=html; wireInstallTip(dyn); $("#eNew").onclick=openNewSpace; $("#eJoin").onclick=()=>openJoin(""); return;
+  }
+  html+=`<div><p class="label">Espacios <span class="count">${mine.length}</span></p><div class="spaces">${mine.map(sp=>{
+    const mem=membersOf(sp.id).map(m=>m.uid); const ls=listsOf(sp.id);
+    return `<button class="space-card" data-sid="${esc(sp.id)}" style="--sc:${colorVar(sp.color)}">
+      <div class="sc-top"><span class="sc-emoji">${esc(sp.emoji||"🏠")}</span>${avatarsHTML(mem,4)}</div>
+      <div class="sc-name">${esc(sp.name)}</div>
+      <div class="sc-meta">${ls.length} ${ls.length===1?"lista":"listas"} · ${mem.length} ${mem.length===1?"miembro":"miembros"}</div>
+      ${shopperOf(sp)?`<div class="sc-shop">🛒 ${shopperOf(sp).uid===S.me?"Estás comprando":esc(pname(shopperOf(sp).uid))+" está comprando"}</div>`:""}
+    </button>`;}).join("")}</div></div>`;
+  dyn.innerHTML=html; wireInstallTip(dyn);
+  dyn.querySelectorAll("[data-sid]").forEach(b=>b.onclick=()=>go({name:"space",spaceId:b.dataset.sid}));
+}
+
+/* ============ Utilidades ============ */
+function findCat(name){
+  const k=norm(name); const tries=[k,k+"s",k+"es",k.replace(/es$/,""),k.replace(/s$/,"")];
+  for(const t of tries){ const c=CAT_BY.get(t); if(c) return c; }
+  return null;
+}
+function normUnit(u){
+  if(!u) return ""; u=u.toLowerCase().replace(/\.$/,"");
+  if(/^gr?s?$|^gramos?$/.test(u)) return "g";
+  if(/^(kg|kilos?)$/.test(u)) return "kg";
+  if(/^(l|litros?)$/.test(u)) return "L";
+  if(u==="ml") return "ml";
+  if(/^(uds?|unidad(es)?)$/.test(u)) return "unidades";
+  if(/^bri[c]?ks?$/.test(u)) return "brik";
+  const map={lata:"latas",botella:"botellas",paquetes:"paquete",packs:"pack",docenas:"docena",bolsas:"bolsa",barra:"barras",rollo:"rollos",botes:"bote",bandejas:"bandeja",cucharada:"cucharadas",diente:"dientes",taza:"tazas"};
+  return map[u]||u;
+}
+const UNIT_RE="(kg|kilos?|gramos?|grs?|g|litros?|l|ml|uds?|unidad(?:es)?|latas?|botellas?|paquetes?|packs?|docenas?|bolsas?|barras?|rollos?|bri[c]?ks?|botes?|bandejas?|cucharadas?|dientes?|tazas?|pizca)";
+const numOf=s=>/^medi[oa]$/i.test(s)?0.5:parseFloat(String(s).replace(",","."));
+function parseEntry(raw){
+  const s=String(raw||"").trim().replace(/\s+/g," "); if(!s) return null;
+  let m=s.match(new RegExp("^(\\d+(?:[.,]\\d+)?|medio|media)\\s*"+UNIT_RE+"?\\.?\\s+(?:de\\s+)?(.+)$","i"));
+  if(m) return {name:m[3].trim(),qty:numOf(m[1]),unit:normUnit(m[2])};
+  m=s.match(new RegExp("^(.+?)\\s+(\\d+(?:[.,]\\d+)?)\\s*"+UNIT_RE+"?$","i"));
+  if(m) return {name:m[1].trim(),qty:numOf(m[2]),unit:normUnit(m[3])};
+  return {name:s,qty:"",unit:""};
+}
+function splitEntries(text){
+  let parts=String(text||"").split(/[,;\n]+/);
+  if(/[,;\n]/.test(text)) parts=parts.flatMap(p=>p.split(/\s+y\s+/i));
+  return parts.map(parseEntry).filter(e=>e&&e.name);
+}
+const prettyName=n=>{const c=findCat(n);return c?c[0]:n.charAt(0).toUpperCase()+n.slice(1);};
+function unitFor(q,u){ if(+q!==1||!u) return u||""; if(u==="unidades") return "unidad"; return /[^m]s$/.test(u)?u.slice(0,-1):u; }
+function qtyText(q,u){return q?`${fmtN(q,2)}${u?" "+unitFor(q,u):""}`:"";}
+
+/* Quién está comprando */
+function shopperOf(sp){const s=sp&&sp.shopping; if(!s||!s.uid) return null; if(Date.now()-(s.at||0)>3*3600e3) return null; return s;}
+function shopperHTML(sp){
+  const s=shopperOf(sp); if(!s) return "";
+  const l=S.lists.get(s.listId); const t=new Date(s.at).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+  return `<div class="shopping-banner"><img referrerpolicy="no-referrer" src="${esc(S.profiles[s.uid]?.avatarUrl||"")}" alt=""><span><strong>${s.uid===S.me?"Estás comprando":esc(pname(s.uid))+" está comprando"}</strong>${l?" en "+esc(l.name):""} · desde las ${esc(t)}</span></div>`;
+}
+async function setShopping(sid,listId,on){
+  try{ await S.db.doc("spaces/"+sid).update({shopping:on?{uid:S.me,listId,at:Date.now()}:null});
+    toast(on?"El resto del espacio verá que estás comprando":"Ya no apareces comprando"); }catch(e){err(e)}
+}
+
+/* ============ Space ============ */
+const TABS=[["listas","Listas"],["menu","Menú"],["recetas","Recetas"],["despensa","Despensa"],["precios","Precios"]];
+function paintSpace(){
+  const sp=S.spaces.get(S.view.spaceId); if(!sp) return;
+  const col=colorVar(sp.color); const mem=membersOf(sp.id).map(m=>m.uid); const tab=S.view.tab||"listas";
+  setBand(col,`
+    <div class="band-top"><button class="iconbtn" id="bBack" aria-label="Volver a espacios">${ICON.back}</button><span class="crumb">Espacio</span><button class="iconbtn" id="bMore" aria-label="Opciones del espacio">${ICON.dots}</button></div>
+    <h1>${esc(sp.emoji||"🏠")} ${esc(sp.name)}</h1>
+    ${shopperHTML(sp)}
+    <div class="band-actions" style="align-items:center">
+      ${avatarsHTML(mem,6)}
+      <button class="pill solid" id="bInvite">${ICON.share}Invitar</button>
+      <button class="pill" id="bHist">${ICON.clock}Historial y gasto</button>
+    </div>`);
+  $("#bHist").onclick=()=>openHistory(sp.id,null);
+  $("#bBack").onclick=()=>go({name:"home"}); $("#bInvite").onclick=()=>openInvite(sp.id);
+  $("#bMore").onclick=()=>openSpaceOptions(sp.id);
+  const dyn=$("#dyn"); const key=sp.id+"/"+tab;
+  if(dyn.dataset.mounted!==key){
+    dyn.dataset.mounted=key;
+    dyn.innerHTML=`<nav class="tabs" role="tablist" style="--sc:${col}">${TABS.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="${k===tab}">${l}</button>`).join("")}</nav><div id="tabFixed"></div><div id="tabDyn" class="tabdyn"></div>`;
+    dyn.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{S.view.tab=b.dataset.tab;refresh();});
+    if(tab==="despensa") mountPantry(sp);
+    if(tab==="precios") mountPrices(sp);
+  }
+  const body=$("#tabDyn");
+  if(tab==="listas") paintListsTab(sp,body,col);
+  else if(tab==="menu") paintMenuTab(sp,body,col);
+  else if(tab==="recetas") paintRecipesTab(sp,body,col);
+  else if(tab==="precios") paintPricesTab(sp,body,col);
+  else paintPantryTab(sp,body,col);
+}
+function paintListsTab(sp,body,col){
+  const ls=listsOf(sp.id);
+  if(!ls.length){
+    body.innerHTML=`<div class="empty" style="--sc:${col}"><div style="font-size:40px">📝</div><p class="e-big">Este espacio no tiene listas</p><p>Crea la primera, por ejemplo «Supermercado» o «Farmacia». Todos los miembros la verán al momento.</p><button class="btn" id="eList">${ICON.plus}Crear lista</button></div>`;
+    $("#eList").onclick=()=>openNewList(sp.id); return;
+  }
+  body.innerHTML=`<div class="lists">${ls.map(l=>{
+    const pend=itemsOf(l.id).filter(i=>!i.done&&!i.checked).sort(byCat);
+    const peek=pend.slice(0,5).map(i=>i.name).join(", ")+(pend.length>5?"…":"");
+    return `<button class="list-row" data-lid="${esc(l.id)}" style="--sc:${col}">
+      <span class="lr-emoji">${esc(l.emoji||"🛒")}</span>
+      <span class="lr-body"><div class="lr-name">${esc(l.name)}</div><div class="lr-peek">${pend.length?esc(peek):"Todo comprado"}</div></span>
+      <span class="lr-badge ${pend.length?"":"zero"}">${pend.length}</span></button>`;}).join("")}
+    <button class="btn quiet" id="bNewList" style="align-self:flex-start">${ICON.plus}Nueva lista</button></div>`;
+  body.querySelectorAll("[data-lid]").forEach(b=>b.onclick=()=>go({name:"list",spaceId:sp.id,listId:b.dataset.lid}));
+  $("#bNewList").onclick=()=>openNewList(sp.id);
+}
+const byCat=(a,b)=>((a.cat??10)-(b.cat??10))||norm(a.name).localeCompare(norm(b.name));
+
+/* ============ List ============ */
+function mountList(){
+  document.body.classList.toggle("store",!!S.storeMode);
+  $("#main").innerHTML=`
+    <div class="addbar" ${S.storeMode?"hidden":""}><form class="addbox" id="addForm" autocomplete="off">
+      <label class="sr" for="addInput">Añadir productos</label>
+      <input id="addInput" placeholder="Ej.: leche, pan, 2 kg de patatas" enterkeyhint="done">
+      <button type="submit">Añadir</button></form>
+      <div class="suggest" id="suggest" hidden></div></div>
+    <div id="dyn"></div>`;
+  const inp=$("#addInput");
+  inp.oninput=()=>{S.query=inp.value;paintSuggest();};
+  $("#addForm").onsubmit=e=>{e.preventDefault();const v=inp.value.trim();if(!v)return;addEntries(v);inp.value="";S.query="";paintSuggest();};
+  wireForms($("#main"));
+}
+async function addEntries(text,target){
+  const entries=splitEntries(text); if(!entries.length) return;
+  for(const e of entries) await addItem(e.name,target,entries.length>1,{qty:e.qty,unit:e.unit});
+  if(entries.length>1) toast(`${entries.length} productos añadidos`);
+}
+function rowIcon(i){
+  if(i.details&&i.details.photo) return `<img referrerpolicy="no-referrer" class="r-photo" src="${esc(i.details.photo)}" alt="">`;
+  const c=findCat(i.name); const ico=i.icon||(c&&c[1]);
+  return ico?`<span class="r-ico" aria-hidden="true">${esc(ico)}</span>`:`<span class="r-ico r-letter" aria-hidden="true">${esc((i.name||"?").trim().charAt(0).toUpperCase())}</span>`;
+}
+function rowHTML(i){
+  const by=i.addedBy&&S.profiles[i.addedBy]?.avatarUrl;
+  const who=i.assignee?`<span class="r-who${i.assignee===S.me?" me":""}">Para ${esc(i.assignee===S.me?"ti":pname(i.assignee))}</span>`:"";
+  return `<li class="row-item ${i.checked?"checked":""}">
+    <button class="check" data-check="${esc(i.id)}" role="checkbox" aria-checked="${i.checked?"true":"false"}" aria-label="${i.checked?"Desmarcar":"Marcar"} ${esc(i.name)} como comprado">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </button>
+    <button class="r-main" data-check="${esc(i.id)}" tabindex="-1" aria-hidden="true">
+      ${rowIcon(i)}
+      <span class="r-text"><span class="r-name">${esc(i.name)}</span>${i.spec?`<span class="r-spec">${esc(i.spec)}</span>`:""}${who}</span>
+    </button>
+    ${by&&!S.storeMode?`<img referrerpolicy="no-referrer" class="r-by" alt="" title="Añadido por ${esc(pname(i.addedBy))}" src="${esc(by)}">`:""}
+    <button class="r-edit" data-edit="${esc(i.id)}" aria-label="Editar ${esc(i.name)}">${ICON.pen}</button>
+  </li>`;
+}
+function simpleRowHTML(i,attr,label,sub){
+  return `<li><button class="row-add" ${attr}>${rowIcon(i)}<span class="r-text"><span class="r-name">${esc(i.name)}</span>${sub||i.spec?`<span class="r-spec">${esc(sub||i.spec)}</span>`:""}</span><span class="r-plus">${label}</span></button></li>`;
+}
+/* Estadísticas por producto a partir del historial de una lista */
+function productStats(listId){
+  const st=new Map();
+  [...S.purchases.values()].filter(p=>p.listId===listId).forEach(p=>{
+    (p.items||[]).forEach(i=>{const k=norm(i.name); const s=st.get(k)||{name:i.name,icon:i.icon,times:[]}; s.times.push(p.at||0); st.set(k,s);});
+  });
+  st.forEach(s=>s.times.sort((a,b)=>a-b));
+  return st;
+}
+function habitualsHTML(listId,pendKeys){
+  const st=[...productStats(listId).values()].filter(s=>!pendKeys.has(norm(s.name))).sort((a,b)=>b.times.length-a.times.length||b.times.at(-1)-a.times.at(-1)).slice(0,10);
+  if(!st.length) return "";
+  return `<div><p class="label">Lo de siempre</p><div class="chips">${st.map(s=>`<button class="chip" data-pick="${esc(s.name)}"><span>${esc(s.icon||(findCat(s.name)||[])[1]||"🛒")}</span>${esc(s.name)}${s.times.length>1?`<em>${s.times.length}×</em>`:""}</button>`).join("")}</div></div>`;
+}
+function runningLowHTML(listId,pendKeys){
+  const now=Date.now(); const day=864e5; const out=[];
+  productStats(listId).forEach(s=>{
+    if(s.times.length<2||pendKeys.has(norm(s.name))) return;
+    const gaps=[]; for(let k=1;k<s.times.length;k++) gaps.push(s.times[k]-s.times[k-1]);
+    const avg=gaps.reduce((a,b)=>a+b,0)/gaps.length; if(avg<day*0.5) return;
+    const since=now-s.times.at(-1);
+    if(since>=avg*0.9) out.push({...s,avg,since,ratio:since/avg});
+  });
+  out.sort((a,b)=>b.ratio-a.ratio);
+  if(!out.length) return "";
+  const d=ms=>{const n=Math.max(1,Math.round(ms/day));return n===1?"1 día":n+" días";};
+  return `<div class="low"><p class="label">Puede que se esté acabando</p><ul class="rows soft">${out.slice(0,5).map(s=>simpleRowHTML({name:s.name,icon:s.icon},`data-pick="${esc(s.name)}"`,"Añadir",`Lo compráis cada ~${d(s.avg)} · última vez hace ${d(s.since)}`)).join("")}</ul></div>`;
+}
+function paintList(){
+  const v=S.view; const sp=S.spaces.get(v.spaceId); const l=S.lists.get(v.listId); if(!sp||!l) return;
+  const col=colorVar(sp.color); const shop=shopperOf(sp); const meShopping=shop&&shop.uid===S.me;
+  setBand(col,`
+    <div class="band-top"><button class="iconbtn" id="bBack" aria-label="Volver al espacio">${ICON.back}</button><span class="crumb">${esc(sp.emoji||"")} ${esc(sp.name)}</span><button class="iconbtn" id="bMore" aria-label="Opciones de la lista">${ICON.dots}</button></div>
+    <h1>${esc(l.emoji||"🛒")} ${esc(l.name)}</h1>
+    ${l.store?`<p class="sub">Se compra en ${esc(l.store)}</p>`:""}
+    ${shopperHTML(sp)}
+    <div class="band-actions">
+      <button class="pill ${meShopping?"":"solid"}" id="bShop">${ICON.cart}${meShopping?"Dejar de comprar":"Voy a comprar"}</button>
+      <button class="pill" id="bStore">${ICON.store}${S.storeMode?"Salir del modo tienda":"Modo tienda"}</button>
+      ${S.storeMode?"":`<button class="pill" id="bHist">${ICON.clock}Historial</button>`}
+    </div>`);
+  $("#bBack").onclick=()=>go({name:"space",spaceId:sp.id}); $("#bMore").onclick=()=>openListOptions(l.id);
+  const h=$("#bHist"); if(h) h.onclick=()=>openHistory(sp.id,l.id);
+  $("#bShop").onclick=()=>{ const on=!meShopping; setShopping(sp.id,l.id,on); if(on&&!S.storeMode) toggleStore(true); };
+  $("#bStore").onclick=()=>toggleStore(!S.storeMode);
+  const all=itemsOf(l.id); let pend=all.filter(i=>!i.done).sort(byCat);
+  const pendKeys=new Set(pend.map(i=>norm(i.name)));
+  if(S.storeMode&&S.mineOnly) pend=pend.filter(i=>!i.assignee||i.assignee===S.me);
+  const nChecked=pend.filter(i=>i.checked).length;
+  const recent=all.filter(i=>i.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0)).slice(0,20);
+  let html="";
+  if(S.storeMode){
+    const mineN=all.filter(i=>!i.done&&i.assignee===S.me).length;
+    html+=`<div class="store-bar"><span><strong>${pend.length-nChecked}</strong> por coger${nChecked?` · ${nChecked} en el carro`:""}</span>
+      <button class="chip ${S.mineOnly?"on":""}" id="bMine" aria-pressed="${!!S.mineOnly}">Solo lo mío${mineN?` (${mineN})`:""}</button></div>`;
+  } else {
+    html+=runningLowHTML(l.id,pendKeys);
+  }
+  if(!pend.length){
+    html+=`<div class="empty"><div style="font-size:40px">✅</div><p class="e-big">${S.storeMode?"Ya lo tienes todo":"No falta nada"}</p><p>${S.storeMode?"Pulsa «Finalizar compra» cuando pases por caja.":"Escribe arriba lo que necesitas. Puedes poner varias cosas separadas por comas."}</p></div>`;
+  } else if(S.storeMode){
+    const todo=pend.filter(i=>!i.checked), cart=pend.filter(i=>i.checked);
+    let last=-1, open=false; html+=`<div>`;
+    todo.forEach(i=>{const c=i.cat??10; if(c!==last){ if(open) html+=`</ul>`; html+=`<p class="catlabel">${esc(CATS[c]||"Otros")}</p><ul class="rows">`; open=true; last=c; } html+=rowHTML(i);});
+    if(open) html+=`</ul>`;
+    if(cart.length) html+=`<p class="catlabel">En el carro</p><ul class="rows">${cart.map(rowHTML).join("")}</ul>`;
+    html+=`</div>`;
+  } else {
+    const est=pend.reduce((a,i)=>a+(+(i.details&&i.details.precio)||0),0);
+    html+=`<div><p class="label">Por comprar <span class="count">${pend.length-nChecked}</span>${est?`<span class="label-est">≈ ${fmtEur(est)}</span>`:""}${nChecked?`<span class="label-note">${nChecked} en el carro</span>`:""}</p>`;
+    let last=-1; let open=false;
+    pend.forEach(i=>{const c=i.cat??10;
+      if(c!==last){ if(open) html+=`</ul>`; html+=`<p class="catlabel">${esc(CATS[c]||"Otros")}</p><ul class="rows">`; open=true; last=c; }
+      html+=rowHTML(i);});
+    if(open) html+=`</ul>`;
+    html+=`</div>`;
+    html+=compareHTML(sp,pend.filter(i=>!i.checked));
+  }
+  if(!S.storeMode){
+    const hab=habitualsHTML(l.id,pendKeys);
+    html+=hab||quickPicksHTML(all);
+    if(recent.length) html+=`<div><p class="label">Comprado hace poco</p><ul class="rows soft">${recent.map(i=>simpleRowHTML(i,`data-readd="${esc(i.id)}"`,"Añadir")).join("")}</ul></div>`;
+  }
+  const dyn=$("#dyn"); dyn.innerHTML=html;
+  dyn.querySelectorAll("[data-check]").forEach(b=>b.onclick=()=>toggleChecked(b.dataset.check));
+  dyn.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openItem(b.dataset.edit));
+  dyn.querySelectorAll("[data-readd]").forEach(b=>b.onclick=()=>readdItem(b.dataset.readd));
+  dyn.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>addItem(b.dataset.pick));
+  const mine=$("#bMine"); if(mine) mine.onclick=()=>{S.mineOnly=!S.mineOnly;paintList();};
+  paintFinish(col,nChecked);
+  paintSuggest();
+}
+let wakeLock=null;
+function toggleStore(on){
+  S.storeMode=on; if(!on) S.mineOnly=false;
+  try{ if(on&&navigator.wakeLock) navigator.wakeLock.request("screen").then(w=>wakeLock=w).catch(()=>{}); else if(wakeLock){wakeLock.release().catch(()=>{});wakeLock=null;} }catch(e){}
+  render(); window.scrollTo(0,0);
+}
+function paintFinish(col,n){
+  let bar=$("#finishBar");
+  if(!n){ if(bar) bar.remove(); return; }
+  if(!bar){ bar=document.createElement("div"); bar.id="finishBar"; bar.className="finish"; $("#main").appendChild(bar); }
+  bar.style.setProperty("--sc",col);
+  bar.innerHTML=`<div class="finish-in"><span class="finish-txt"><strong>${n}</strong> ${n===1?"producto marcado":"productos marcados"}</span><button class="btn" id="bFinish">Finalizar compra</button></div>`;
+  $("#bFinish").onclick=()=>finishShopping();
+}
+function quickPicksHTML(all){
+  const have=new Set(all.map(i=>norm(i.name)));
+  const picks=["Leche","Pan","Huevos","Plátanos","Tomates","Papel higiénico","Café","Agua"].filter(n=>!have.has(norm(n))).slice(0,8);
+  if(!picks.length) return "";
+  return `<div><p class="label">Ideas rápidas</p><div class="chips">${picks.map(n=>`<button class="chip" data-pick="${esc(n)}"><span>${findCat(n)[1]}</span>${esc(n)}</button>`).join("")}</div></div>`;
+}
+function paintSuggest(){
+  const box=$("#suggest"); if(!box) return; const raw=S.query; const q=norm(raw);
+  if(!q){box.hidden=true;box.innerHTML="";return;}
+  if(/[,;\n]/.test(raw)){
+    const es=splitEntries(raw);
+    box.innerHTML=`<ul class="rows"><li><button class="row-add" id="multiAdd"><span class="r-ico">🧺</span><span class="r-text"><span class="r-name">Añadir ${es.length} ${es.length===1?"producto":"productos"}</span><span class="r-spec">${esc(es.map(e=>(e.qty?qtyText(e.qty,e.unit)+" ":"")+prettyName(e.name)).join(" · "))}</span></span><span class="r-plus">Añadir</span></button></li></ul>`;
+    box.hidden=false; $("#multiAdd").onclick=()=>{addEntries(raw);const i=$("#addInput");i.value="";S.query="";paintSuggest();i.focus();};
+    return;
+  }
+  const e=parseEntry(raw); const nq=norm(e.name);
+  const l=S.view.listId; const pendNames=new Set(itemsOf(l).filter(i=>!i.done).map(i=>norm(i.name)));
+  const hits=CATALOG.filter(c=>norm(c[0]).includes(nq)).sort((a,b)=>norm(a[0]).indexOf(nq)-norm(b[0]).indexOf(nq)).slice(0,6);
+  const exact=!!findCat(e.name)&&hits.some(c=>c===findCat(e.name));
+  const pre=e.qty?qtyText(e.qty,e.unit)+" ":"";
+  let html="";
+  if(!exact) html+=simpleRowHTML({name:prettyName(e.name)},`data-add="${esc(raw.trim())}"`,"Añadir",e.qty?qtyText(e.qty,e.unit):"");
+  html+=hits.map(c=>simpleRowHTML({name:c[0],icon:c[1]},`data-add="${esc(pre+c[0])}"`,pendNames.has(norm(c[0]))?"Ya está":"Añadir",e.qty?qtyText(e.qty,e.unit):"")).join("");
+  box.innerHTML=`<ul class="rows">${html}</ul>`; box.hidden=false;
+  box.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{addEntries(b.dataset.add);const i=$("#addInput");i.value="";S.query="";paintSuggest();i.focus();});
+}
+
+/* ============ Writes ============ */
+async function addItem(name,target,quiet,extra){
+  if(!S.db) return; name=String(name||"").trim().slice(0,60); if(!name) return;
+  const v=target||S.view; const c=findCat(name); const finalName=c?c[0]:name.charAt(0).toUpperCase()+name.slice(1);
+  const key=norm(finalName); extra=extra||{};
+  const existing=itemsOf(v.listId).find(i=>norm(i.name)===key)||[...S.items.values()].find(i=>i.listId===v.listId&&norm(i.name)===norm(name));
+  const cat=existing?(existing.cat??10):(c?c[2]:10);
+  const lst=S.lists.get(v.listId);
+  const mkDet=(old)=>{ const d=Object.assign({},old||{}); if(extra.qty){d.qty=extra.qty;d.unit=extra.unit||"unidades";} if(extra.nota) d.nota=extra.nota;
+    if(!d.tienda&&lst&&lst.store) d.tienda=lst.store;
+    if(d.tienda&&!d.precio){ const b=bookPrice(v.spaceId,finalName,d.tienda); if(b) d.precio=b.price; }
+    return d; };
+  try{
+    if(existing){
+      if(!existing.done){
+        if(extra.qty||extra.nota){ const d=mkDet(existing.details); await S.db.doc("items/"+existing.id).update({details:d,spec:specOf(d)}); if(!quiet) toast(`${existing.name}: actualizado`); }
+        else if(!quiet) toast(`${existing.name} ya está en la lista`);
+        return;
+      }
+      const d=mkDet(existing.details);
+      await S.db.doc("items/"+existing.id).update({done:false,checked:false,addedBy:S.me,addedAt:Date.now(),details:d,spec:specOf(d)});
+    } else {
+      const d=mkDet(null);
+      await S.db.collection("items").add({spaceId:v.spaceId,listId:v.listId,name:finalName,icon:c?c[1]:"",cat,spec:specOf(d),details:d,done:false,checked:false,addedBy:S.me,addedAt:Date.now()});
+    }
+  }catch(e){err(e)}
+}
+async function toggleChecked(id){
+  const it=S.items.get(id); if(!it||it.done) return;
+  try{ await S.db.doc("items/"+id).update({checked:!it.checked,checkedBy:S.me}); }catch(e){err(e)}
+}
+async function readdItem(id){
+  const it=S.items.get(id); if(!it) return;
+  try{ await S.db.doc("items/"+id).update({done:false,checked:false,addedBy:S.me,addedAt:Date.now()}); }catch(e){err(e)}
+}
+async function finishShopping(){
+  const l=S.view.listId; const sid=S.view.spaceId; const marked=itemsOf(l).filter(i=>!i.done&&i.checked);
+  if(!marked.length) return;
+  const b=$("#bFinish"); if(b){b.disabled=true;b.textContent="Guardando…";}
+  const now=Date.now(); let ok=0; const bought=[];
+  for(const it of marked){ try{ await S.db.doc("items/"+it.id).update({done:true,checked:false,doneAt:now,doneBy:S.me}); ok++;
+    bought.push({name:it.name,icon:it.icon||"",spec:it.spec||"",cat:it.cat??10,precio:+(it.details&&it.details.precio)||0,tienda:(it.details&&it.details.tienda)||""});
+    if(it.details&&it.details.tienda&&+it.details.precio) recordPrice(sid,it.name,it.details.tienda,+it.details.precio,it.details.qty,it.details.unit); }catch(e){ err(e); } }
+  if(bought.length){ const lst=S.lists.get(l); const total=bought.reduce((a,i)=>a+i.precio,0);
+    try{ await S.db.collection("purchases").add({spaceId:sid,listId:l,listName:lst?lst.name:"",listEmoji:lst?lst.emoji||"":"",items:bought,total,by:S.me,at:now}); }catch(e){ console.warn(e); }
+    // Lo comprado pasa a la despensa como «En casa»
+    for(const i of bought){ const p=pantryOf(sid).find(x=>norm(x.name)===norm(i.name));
+      try{ if(p){ if(p.state!=="hay") await S.db.doc("pantry/"+p.id).update({state:"hay",updatedAt:now}); }
+        else await S.db.collection("pantry").add({spaceId:sid,name:i.name,icon:i.icon,cat:i.cat,state:"hay",updatedAt:now,by:S.me}); }catch(e){} }
+  }
+  const sp=S.spaces.get(sid); if(shopperOf(sp)&&sp.shopping.uid===S.me){ try{ await S.db.doc("spaces/"+sid).update({shopping:null}); }catch(e){} }
+  if(S.storeMode){ S.storeMode=false; S.mineOnly=false; render(); }
+  toast(`Compra finalizada · ${ok} ${ok===1?"producto":"productos"} a la despensa`);
+  pruneDone(l);
+}
+async function pruneDone(listId){
+  const done=itemsOf(listId).filter(i=>i.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0));
+  for(const old of done.slice(40)){ try{await S.db.doc("items/"+old.id).delete();}catch(e){} }
+}
+
+function makeCode(){let s="";const a=new Uint32Array(6);crypto.getRandomValues(a);for(const n of a)s+=CODE_CHARS[n%CODE_CHARS.length];return s;}
+async function createSpace({name,emoji,color}){
+  if(HAS_FIREBASE) return fbCreateSpace({name,emoji,color});
+  let code=makeCode();
+  for(let k=0;k<4;k++){ const g=await S.db.doc("invites/"+code).get(); if(!g.exists) break; code=makeCode(); }
+  const ref=S.db.collection("spaces").doc();
+  await ref.set({name,emoji,color,code,createdBy:S.me,createdAt:Date.now()});
+  await S.db.doc("invites/"+code).set({spaceId:ref.id});
+  await S.db.doc(`memberships/${ref.id}__${S.me}`).set({spaceId:ref.id,uid:S.me,joinedAt:Date.now(),role:"creator"});
+  await S.db.collection("lists").add({spaceId:ref.id,name:"Supermercado",emoji:"🛒",createdAt:Date.now(),createdBy:S.me});
+  return ref.id;
+}
+async function joinByCode(code){
+  if(HAS_FIREBASE) return fbJoinByCode(code);
+  const g=await S.db.doc("invites/"+code).get();
+  if(!g.exists) return {ok:false,msg:"No hay ningún espacio con ese código. Revisa que esté bien escrito."};
+  const sid=g.data().spaceId; const sp=await S.db.doc("spaces/"+sid).get();
+  if(!sp.exists) return {ok:false,msg:"Ese espacio ya no existe."};
+  if(mySpaceIds().has(sid)) return {ok:true,sid,already:true};
+  await S.db.doc(`memberships/${sid}__${S.me}`).set({spaceId:sid,uid:S.me,joinedAt:Date.now(),role:"member"});
+  return {ok:true,sid};
+}
+async function deleteSpace(sid){
+  if(HAS_FIREBASE) return fbDeleteSpace(sid);
+  const sp=S.spaces.get(sid);
+  const items=await S.db.collection("items").where("spaceId","==",sid).get();
+  for(const d of items.docs) await S.db.doc("items/"+d.id).delete();
+  for(const l of listsOf(sid)) await S.db.doc("lists/"+l.id).delete();
+  try{ const ps=await S.db.collection("purchases").where("spaceId","==",sid).get(); for(const d of ps.docs) await S.db.doc("purchases/"+d.id).delete(); }catch(e){}
+  for(const coll of ["recipes","pantry","prices"]){ try{ const q=await S.db.collection(coll).where("spaceId","==",sid).get(); for(const d of q.docs) await S.db.doc(coll+"/"+d.id).delete(); }catch(e){} }
+  try{ await S.db.doc("menus/"+sid).delete(); }catch(e){}
+  for(const m of membersOf(sid)) await S.db.doc("memberships/"+m.id).delete();
+  if(sp&&sp.code) await S.db.doc("invites/"+sp.code).delete();
+  await S.db.doc("spaces/"+sid).delete();
+}
+
+/* ============ History ============ */
+function fmtDate(t){
+  const d=new Date(t), now=new Date();
+  const day=new Date(d.getFullYear(),d.getMonth(),d.getDate()), today=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const diff=Math.round((today-day)/864e5);
+  const hm=d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+  if(diff===0) return "Hoy, "+hm;
+  if(diff===1) return "Ayer, "+hm;
+  const opts=d.getFullYear()===now.getFullYear()?{weekday:"long",day:"numeric",month:"long"}:{day:"numeric",month:"long",year:"numeric"};
+  const s=d.toLocaleDateString("es-ES",opts); return s.charAt(0).toUpperCase()+s.slice(1)+", "+hm;
+}
+async function openHistory(sid,lid){
+  const sp=S.spaces.get(sid); if(!sp) return; const col=colorVar(sp.color);
+  const allP=[...S.purchases.values()].filter(p=>p.spaceId===sid&&(!lid||p.listId===lid)).sort((a,b)=>(b.at||0)-(a.at||0));
+  const ps=allP.slice(0,100);
+  await getProfiles(ps.map(p=>p.by).filter(Boolean));
+  const title=lid?`Historial · ${esc(S.lists.get(lid)?.name||"")}`:`Historial · ${esc(sp.name)}`;
+  const tot=p=>+(p.total??(p.items||[]).reduce((a,i)=>a+(+i.precio||0),0))||0;
+  // Gasto por mes (últimos 6)
+  const now=new Date(); const months=[];
+  for(let k=5;k>=0;k--){ const d=new Date(now.getFullYear(),now.getMonth()-k,1); months.push({y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleDateString("es-ES",{month:"short"}).replace(".",""),sum:0,n:0}); }
+  allP.forEach(p=>{const d=new Date(p.at); const mm=months.find(x=>x.y===d.getFullYear()&&x.m===d.getMonth()); if(mm){mm.sum+=tot(p);mm.n++;}});
+  const thisM=months[5], prevM=months[4]; const priced=allP.filter(p=>tot(p)>0);
+  const avg=priced.length?priced.reduce((a,p)=>a+tot(p),0)/priced.length:0;
+  const maxM=Math.max(...months.map(x=>x.sum),1);
+  let stats="";
+  if(allP.length){
+    if(priced.length){
+      const diff=prevM.sum?Math.round((thisM.sum-prevM.sum)/prevM.sum*100):null;
+      stats=`<div class="spend">
+        <div class="kpis">
+          <div><span>Este mes</span><strong>${fmtEur(thisM.sum)}</strong>${diff!==null?`<em class="${diff>0?"up":"down"}">${diff>0?"+":""}${diff}% vs. mes pasado</em>`:""}</div>
+          <div><span>Mes pasado</span><strong>${fmtEur(prevM.sum)}</strong></div>
+          <div><span>Media por compra</span><strong>${fmtEur(avg)}</strong></div>
+        </div>
+        <div class="bars" role="img" aria-label="Gasto de los últimos 6 meses">${months.map((x,k)=>`<div class="bar${k===5?" now":""}"><span class="bv">${x.sum?fmtN(x.sum)+" €":""}</span><span class="bf" style="height:${Math.max(2,x.sum/maxM*100)}%"></span><span class="bl">${esc(x.label)}</span></div>`).join("")}</div>
+        <p class="fine">Calculado con los precios aproximados que pongáis en cada producto.</p>
+      </div>`;
+    } else stats=`<div class="notice">Pon un <strong>precio aproximado</strong> en la ficha de los productos (lápiz) y aquí verás cuánto gastáis por compra y por mes.</div>`;
+  }
+  let body="", lastMonth="";
+  ps.forEach(p=>{
+    const m=new Date(p.at).toLocaleDateString("es-ES",{month:"long",year:"numeric"});
+    if(m!==lastMonth){ body+=`<p class="catlabel">${esc(m.charAt(0).toUpperCase()+m.slice(1))}</p>`; lastMonth=m; }
+    const n=(p.items||[]).length; const listAlive=S.lists.has(p.listId); const t=tot(p);
+    body+=`<details class="purchase">
+      <summary>
+        <span class="pu-main"><span class="pu-date">${esc(fmtDate(p.at))}</span>
+        <span class="pu-meta">${n} ${n===1?"producto":"productos"} · ${esc(pname(p.by))}${!lid&&p.listName?" · "+esc(p.listEmoji||"")+" "+esc(p.listName):""}</span></span>
+        ${t?`<span class="pu-total">${fmtEur(t)}</span>`:""}
+        <span class="pu-chev" aria-hidden="true"></span>
+      </summary>
+      <ul class="pu-items">${(p.items||[]).slice().sort(byCat).map(i=>`<li><span class="r-ico">${esc(i.icon||"•")}</span><span class="pu-n">${esc(i.name)}${i.spec?` <em>${esc(i.spec)}</em>`:""}</span>${+i.precio?`<span class="pu-p">${fmtEur(i.precio)}</span>`:""}</li>`).join("")}</ul>
+      ${listAlive?`<div class="row pu-actions"><button class="btn quiet" data-again="${esc(p.id)}">${ICON.plus}Añadir todo otra vez a la lista</button></div>`:""}
+    </details>`;
+  });
+  if(!ps.length) body=`<div class="empty"><div style="font-size:36px">🧾</div><p class="e-big">Todavía no hay compras</p><p>Cuando marques productos y pulses «Finalizar compra», la compra aparecerá aquí con su fecha, quién la hizo y lo que costó.</p></div>`;
+  const totalItems=ps.reduce((a,p)=>a+(p.items||[]).length,0);
+  sheet(col,`<h2>${title}</h2>
+    ${ps.length?`<p>${allP.length} ${allP.length===1?"compra":"compras"} · ${totalItems} productos</p>`:""}
+    ${stats}
+    <div class="history">${body}</div>
+    <button class="btn quiet block" id="hClose">Cerrar</button>`,el=>{
+      el.querySelector("#hClose").onclick=closeSheet;
+      el.querySelectorAll("[data-again]").forEach(b=>b.onclick=async()=>{
+        const p=S.purchases.get(b.dataset.again); if(!p) return; b.disabled=true;
+        for(const i of p.items||[]) await addItem(i.name,{spaceId:p.spaceId,listId:p.listId},true);
+        closeSheet(); toast(`${(p.items||[]).length} productos añadidos a ${S.lists.get(p.listId)?.name||"la lista"}`);
+      });
+    });
+}
+
+/* ============ Despensa ============ */
+const PSTATES=[["hay","En casa"],["poco","Queda poco"],["no","Se acabó"]];
+const pantryOf=sid=>[...S.pantry.values()].filter(p=>p.spaceId===sid);
+function mountPantry(sp){
+  $("#tabFixed").innerHTML=`<form class="addbox" id="pForm" autocomplete="off" style="--sc:${colorVar(sp.color)}">
+    <label class="sr" for="pInput">Añadir a la despensa</label>
+    <input id="pInput" placeholder="Ej.: arroz, aceite, sal" enterkeyhint="done"><button type="submit">Añadir</button></form>`;
+  $("#pForm").onsubmit=async e=>{e.preventDefault(); const inp=$("#pInput"); const es=splitEntries(inp.value); inp.value="";
+    for(const en of es){ const c=findCat(en.name); const name=c?c[0]:prettyName(en.name);
+      const ex=pantryOf(sp.id).find(p=>norm(p.name)===norm(name));
+      try{ if(ex) await S.db.doc("pantry/"+ex.id).update({state:"hay",updatedAt:Date.now()});
+        else await S.db.collection("pantry").add({spaceId:sp.id,name,icon:c?c[1]:"",cat:c?c[2]:10,state:"hay",updatedAt:Date.now(),by:S.me}); }catch(x){err(x)} }
+  };
+  wireForms($("#tabFixed"));
+}
+function paintPantryTab(sp,body,col){
+  const items=pantryOf(sp.id).sort(byCat);
+  if(!items.length){
+    body.innerHTML=`<div class="empty"><div style="font-size:40px">🫙</div><p class="e-big">La despensa está vacía</p><p>Apunta lo que tenéis en casa. Cuando finalices una compra, lo comprado aparecerá aquí solo. Si algo se acaba, márcalo y pásalo a la lista con un toque.</p></div>`;
+    return;
+  }
+  const missing=items.filter(p=>p.state!=="hay");
+  let html="";
+  if(missing.length) html+=`<div class="pantry-alert"><span><strong>${missing.length}</strong> ${missing.length===1?"cosa se acaba o se ha acabado":"cosas se acaban o se han acabado"}</span><button class="btn" id="pAll">${ICON.plus}Pasar todo a la lista</button></div>`;
+  [["no","Se acabó"],["poco","Queda poco"],["hay","En casa"]].forEach(([st,label])=>{
+    const g=items.filter(p=>(p.state||"hay")===st); if(!g.length) return;
+    html+=`<div><p class="label">${label} <span class="count">${g.length}</span></p><ul class="rows">${g.map(p=>`
+      <li class="pantry-row st-${st}">
+        ${rowIcon(p)}
+        <span class="r-text"><span class="r-name">${esc(p.name)}</span></span>
+        <span class="seg" role="group" aria-label="Estado de ${esc(p.name)}">${PSTATES.map(([k,l])=>`<button data-pst="${esc(p.id)}" data-v="${k}" aria-pressed="${(p.state||"hay")===k}">${l}</button>`).join("")}</span>
+        ${st!=="hay"?`<button class="mini" data-p2l="${esc(p.id)}" aria-label="Añadir ${esc(p.name)} a la lista">${ICON.plus}Lista</button>`:""}
+        <button class="r-edit" data-pdel="${esc(p.id)}" aria-label="Quitar ${esc(p.name)} de la despensa">${ICON.x}</button>
+      </li>`).join("")}</ul></div>`;
+  });
+  body.innerHTML=html;
+  body.querySelectorAll("[data-pst]").forEach(b=>b.onclick=async()=>{try{await S.db.doc("pantry/"+b.dataset.pst).update({state:b.dataset.v,updatedAt:Date.now()});}catch(x){err(x)}});
+  body.querySelectorAll("[data-pdel]").forEach(b=>b.onclick=async()=>{try{await S.db.doc("pantry/"+b.dataset.pdel).delete();}catch(x){err(x)}});
+  body.querySelectorAll("[data-p2l]").forEach(b=>b.onclick=()=>{const p=S.pantry.get(b.dataset.p2l); pickList(sp.id,async lid=>{await addItem(p.name,{spaceId:sp.id,listId:lid},true); toast(`${p.name} añadido a ${S.lists.get(lid)?.name}`);});});
+  const all=$("#pAll"); if(all) all.onclick=()=>pickList(sp.id,async lid=>{for(const p of missing) await addItem(p.name,{spaceId:sp.id,listId:lid},true); toast(`${missing.length} productos añadidos a ${S.lists.get(lid)?.name}`);});
+}
+function pickList(sid,fn){
+  const ls=listsOf(sid);
+  if(!ls.length) return toast("Crea primero una lista en la pestaña Listas");
+  if(ls.length===1) return fn(ls[0].id);
+  const sp=S.spaces.get(sid);
+  sheet(colorVar(sp.color),`<h2>¿A qué lista?</h2><div class="lists">${ls.map(l=>`<button class="list-row" data-pl="${esc(l.id)}"><span class="lr-emoji">${esc(l.emoji||"🛒")}</span><span class="lr-body"><div class="lr-name">${esc(l.name)}</div></span></button>`).join("")}</div><button class="btn quiet block" id="plNo">Cancelar</button>`,el=>{
+    el.querySelectorAll("[data-pl]").forEach(b=>b.onclick=()=>{closeSheet();fn(b.dataset.pl);});
+    el.querySelector("#plNo").onclick=closeSheet;
+  });
+}
+
+/* ============ Recetas ============ */
+const RECIPE_EMOJI=["🍝","🥘","🍲","🥗","🍛","🍳","🥪","🌮","🍕","🐟","🍗","🥦","🍰","🥞"];
+const recipesOf=sid=>[...S.recipes.values()].filter(r=>r.spaceId===sid).sort((a,b)=>norm(a.name).localeCompare(norm(b.name)));
+const ingText=i=>`${i.qty?qtyText(i.qty,i.unit)+" ":""}${i.name}`;
+function paintRecipesTab(sp,body,col){
+  const rs=recipesOf(sp.id);
+  let html=`<div class="row"><button class="btn" id="rNew">${ICON.plus}Nueva receta</button></div>`;
+  if(!rs.length) html+=`<div class="empty"><div style="font-size:40px">📖</div><p class="e-big">Vuestro recetario está vacío</p><p>Guarda las recetas de casa con sus ingredientes. Con un toque los pasas a la lista de la compra o las pones en el menú de la semana.</p></div>`;
+  else html+=`<div class="recipes">${rs.map(r=>`<button class="recipe-card" data-rid="${esc(r.id)}"><span class="rc-emoji">${esc(r.emoji||"🍲")}</span><span class="rc-name">${esc(r.name)}</span><span class="rc-meta">${(r.ingredients||[]).length} ingredientes${r.servings?` · ${esc(r.servings)} raciones`:""}</span></button>`).join("")}</div>`;
+  body.innerHTML=html;
+  $("#rNew").onclick=()=>openRecipeEdit(sp.id,null);
+  body.querySelectorAll("[data-rid]").forEach(b=>b.onclick=()=>openRecipe(b.dataset.rid));
+}
+function openRecipeEdit(sid,rid){
+  const sp=S.spaces.get(sid); const r=rid?S.recipes.get(rid):null; const st={emoji:r?.emoji||"🍲"};
+  sheet(colorVar(sp.color),`<h2>${r?"Editar receta":"Nueva receta"}</h2>
+    <form id="fRec" class="item-form">
+      <div class="field"><label for="rName">Nombre</label><input id="rName" maxlength="60" value="${esc(r?.name||"")}" placeholder="Ej.: Paella de la abuela"></div>
+      <div class="field"><label>Icono</label>${pickerHTML("pRE",RECIPE_EMOJI,st.emoji)}</div>
+      <div class="field" style="max-width:160px"><label for="rServ">Raciones</label><input id="rServ" type="number" inputmode="numeric" min="1" value="${esc(r?.servings||4)}"></div>
+      <div class="field"><label for="rIng">Ingredientes (uno por línea)</label><textarea id="rIng" rows="7" placeholder="400 g arroz bomba&#10;1 pollo&#10;2 tomates&#10;Azafrán">${esc((r?.ingredients||[]).map(ingText).join("\n"))}</textarea></div>
+      <div class="field"><label for="rSteps">Preparación</label><textarea id="rSteps" rows="5" placeholder="Pasos, trucos, tiempos…">${esc(r?.steps||"")}</textarea></div>
+      <button class="btn block" type="submit">Guardar receta</button>
+    </form>`,el=>{
+      wirePicker(el,"pRE",v=>st.emoji=v);
+      el.querySelector("#fRec").onsubmit=async e=>{e.preventDefault();
+        const name=el.querySelector("#rName").value.trim(); if(!name){toast("Ponle un nombre a la receta");return;}
+        const ings=el.querySelector("#rIng").value.split("\n").map(parseEntry).filter(Boolean).map(i=>({name:prettyName(i.name),qty:i.qty||"",unit:i.unit||""}));
+        const data={spaceId:sid,name,emoji:st.emoji,servings:+el.querySelector("#rServ").value||"",ingredients:ings,steps:el.querySelector("#rSteps").value.trim(),by:r?.by||S.me,at:r?.at||Date.now()};
+        try{ if(r) await S.db.doc("recipes/"+r.id).set(data); else await S.db.collection("recipes").add(data); closeSheet(); toast("Receta guardada"); }catch(x){err(x)}
+      };
+    });
+}
+function openRecipe(rid){
+  const r=S.recipes.get(rid); if(!r) return; const sp=S.spaces.get(r.spaceId); const col=colorVar(sp.color);
+  const hay=new Set(pantryOf(sp.id).filter(p=>(p.state||"hay")==="hay").map(p=>norm(p.name)));
+  sheet(col,`<div class="item-head"><span class="item-ico">${esc(r.emoji||"🍲")}</span><div><h2>${esc(r.name)}</h2><p>${r.servings?esc(r.servings)+" raciones · ":""}${(r.ingredients||[]).length} ingredientes</p></div></div>
+    <div><p class="label">Ingredientes</p><ul class="pu-items plain">${(r.ingredients||[]).map(i=>`<li><span class="r-ico">${esc((findCat(i.name)||[])[1]||"•")}</span><span class="pu-n">${esc(ingText(i))}</span>${hay.has(norm(i.name))?`<span class="tag">En casa</span>`:""}</li>`).join("")||"<li>Sin ingredientes</li>"}</ul></div>
+    ${r.steps?`<div><p class="label">Preparación</p><p class="steps-txt">${esc(r.steps)}</p></div>`:""}
+    <div class="row" style="flex-direction:column">
+      <button class="btn block" id="rToList">${ICON.plus}Añadir ingredientes a la lista</button>
+      <div class="grid2"><div class="field"><label for="rDay">Ponerla en el menú</label><select id="rDay">${DAYS.map((d,k)=>`<option value="${k}" ${k===todayIdx()?"selected":""}>${d}</option>`).join("")}</select></div>
+        <div class="field"><label for="rMeal">&nbsp;</label><select id="rMeal">${MEALS.map(([k,l])=>`<option value="${k}">${l}</option>`).join("")}</select></div></div>
+      <button class="btn quiet block" id="rToMenu">Poner en el menú</button>
+      <div class="row"><button class="btn quiet" id="rEdit">${ICON.pen}Editar</button><button class="btn quiet" id="rDel" style="color:var(--danger)">Eliminar</button></div>
+    </div>`,el=>{
+      el.querySelector("#rToList").onclick=()=>openIngredientsSheet(sp.id,r.name,(r.ingredients||[]).map(i=>({...i,from:[r.name]})));
+      el.querySelector("#rToMenu").onclick=async()=>{await setMenuSlot(sp.id,+el.querySelector("#rDay").value,el.querySelector("#rMeal").value,{recipeId:r.id});closeSheet();toast(`${r.name} en el menú del ${DAYS[+el.querySelector("#rDay").value].toLowerCase()}`);};
+      el.querySelector("#rEdit").onclick=()=>openRecipeEdit(sp.id,r.id);
+      el.querySelector("#rDel").onclick=()=>confirmSheet(col,`¿Eliminar «${r.name}»?`,"Se borrará la receta para todo el espacio.","Eliminar",async()=>{await S.db.doc("recipes/"+r.id).delete();});
+    });
+}
+function openIngredientsSheet(sid,title,ings){
+  const sp=S.spaces.get(sid); const ls=listsOf(sid);
+  if(!ls.length) return toast("Crea primero una lista en la pestaña Listas");
+  if(!ings.length) return toast("No hay ingredientes que añadir");
+  const hay=new Set(pantryOf(sid).filter(p=>(p.state||"hay")==="hay").map(p=>norm(p.name)));
+  const pend=new Set([...S.items.values()].filter(i=>!i.done).map(i=>norm(i.name)));
+  sheet(colorVar(sp.color),`<h2>Ingredientes de ${esc(title)}</h2>
+    <p>Desmarcado lo que ya tenéis en casa o ya está en una lista.</p>
+    <div class="field"><label for="igList">Añadir a</label><select id="igList">${ls.map(l=>`<option value="${esc(l.id)}">${esc(l.emoji||"")} ${esc(l.name)}</option>`).join("")}</select></div>
+    <ul class="rows ing-list">${ings.map((i,k)=>{const skip=hay.has(norm(i.name))||pend.has(norm(i.name));
+      return `<li><label class="ing"><input type="checkbox" data-ig="${k}" ${skip?"":"checked"}><span class="r-ico">${esc((findCat(i.name)||[])[1]||"•")}</span><span class="r-text"><span class="r-name">${esc(ingText(i))}</span>${i.from&&i.from.length>1?`<span class="r-spec">Para ${esc(i.from.join(", "))}</span>`:""}</span>${hay.has(norm(i.name))?`<span class="tag">En casa</span>`:pend.has(norm(i.name))?`<span class="tag">Ya en la lista</span>`:""}</label></li>`;}).join("")}</ul>
+    <button class="btn block" id="igGo">Añadir a la lista</button>`,el=>{
+      el.querySelector("#igGo").onclick=async()=>{
+        const lid=el.querySelector("#igList").value; const sel=[...el.querySelectorAll("[data-ig]:checked")].map(x=>ings[+x.dataset.ig]);
+        if(!sel.length){toast("No has marcado ningún ingrediente");return;}
+        const b=el.querySelector("#igGo"); b.disabled=true; b.textContent="Añadiendo…";
+        for(const i of sel) await addItem(i.name,{spaceId:sid,listId:lid},true,{qty:i.qty,unit:i.unit,nota:"Para: "+(i.from||[title]).join(", ")});
+        closeSheet(); toast(`${sel.length} ingredientes añadidos a ${S.lists.get(lid)?.name}`);
+      };
+    });
+}
+
+/* ============ Menú semanal ============ */
+const DAYS=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
+const MEALS=[["comida","Comida"],["cena","Cena"]];
+const todayIdx=()=>(new Date().getDay()+6)%7;
+const menuDays=()=>(S.menu&&S.menu.days)||{};
+async function setMenuSlot(sid,day,meal,val){
+  const days=JSON.parse(JSON.stringify(menuDays())); days[day]=days[day]||{};
+  if(val) days[day][meal]=val; else delete days[day][meal];
+  try{ await S.db.doc("menus/"+sid).set({spaceId:sid,days,updatedAt:Date.now()}); }catch(e){err(e)}
+}
+function slotLabel(v){ if(!v) return null; if(v.recipeId){const r=S.recipes.get(v.recipeId); return r?{emoji:r.emoji||"🍲",text:r.name,recipe:true}:{emoji:"❔",text:"Receta borrada"};} return v.text?{emoji:"✏️",text:v.text}:null; }
+function paintMenuTab(sp,body,col){
+  const days=menuDays(); const t=todayIdx();
+  const usedRecipes=[]; Object.values(days).forEach(d=>MEALS.forEach(([m])=>{const v=d&&d[m]; if(v&&v.recipeId&&S.recipes.get(v.recipeId)) usedRecipes.push(S.recipes.get(v.recipeId));}));
+  const any=Object.values(days).some(d=>d&&Object.keys(d).length);
+  let html=`<div class="row">
+    <button class="btn" id="mToList" ${usedRecipes.length?"":"disabled"}>${ICON.plus}Ingredientes del menú a la lista</button>
+    ${any?`<button class="btn quiet" id="mClear">Vaciar menú</button>`:""}</div>`;
+  if(!recipesOf(sp.id).length) html+=`<div class="notice">Consejo: guarda primero vuestras recetas en la pestaña <strong>Recetas</strong>. Así, al ponerlas en el menú, podrás pasar todos sus ingredientes a la lista de una vez. También puedes escribir cualquier cosa, como «Sobras» o «Cenamos fuera».</div>`;
+  html+=`<div class="week">${DAYS.map((d,k)=>`<div class="day${k===t?" today":""}"><p class="day-name">${d}${k===t?" <span>hoy</span>":""}</p>
+    <div class="slots">${MEALS.map(([m,l])=>{const s=slotLabel(days[k]&&days[k][m]);
+      return `<button class="slot${s?" filled":""}" data-day="${k}" data-meal="${m}"><span class="slot-meal">${l}</span>${s?`<span class="slot-val"><span>${esc(s.emoji)}</span>${esc(s.text)}</span>`:`<span class="slot-empty">+ Añadir</span>`}</button>`;}).join("")}</div></div>`).join("")}</div>`;
+  body.innerHTML=html;
+  body.querySelectorAll("[data-day]").forEach(b=>b.onclick=()=>openSlot(sp.id,+b.dataset.day,b.dataset.meal));
+  const c=$("#mClear"); if(c) c.onclick=()=>confirmSheet(col,"¿Vaciar el menú de la semana?","Se quitarán todas las comidas y cenas planificadas. Las recetas no se borran.","Vaciar",async()=>{await S.db.doc("menus/"+sp.id).set({spaceId:sp.id,days:{},updatedAt:Date.now()});});
+  const ml=$("#mToList"); if(ml) ml.onclick=()=>{
+    const agg=new Map();
+    usedRecipes.forEach(r=>(r.ingredients||[]).forEach(i=>{const k=norm(i.name)+"|"+(i.unit||""); const a=agg.get(k);
+      if(a){ if(i.qty&&a.qty!=="") a.qty=(+a.qty)+(+i.qty); if(!a.from.includes(r.name)) a.from.push(r.name);} else agg.set(k,{...i,from:[r.name]});}));
+    openIngredientsSheet(sp.id,"el menú",[...agg.values()]);
+  };
+}
+function openSlot(sid,day,meal){
+  const sp=S.spaces.get(sid); const cur=menuDays()[day]?.[meal]; const rs=recipesOf(sid);
+  sheet(colorVar(sp.color),`<h2>${DAYS[day]} · ${MEALS.find(m=>m[0]===meal)[1]}</h2>
+    ${rs.length?`<div><p class="label">Elige una receta</p><div class="recipes small">${rs.map(r=>`<button class="recipe-card${cur&&cur.recipeId===r.id?" sel":""}" data-pick-r="${esc(r.id)}"><span class="rc-emoji">${esc(r.emoji||"🍲")}</span><span class="rc-name">${esc(r.name)}</span></button>`).join("")}</div></div>`:""}
+    <form id="fSlot" class="field"><label for="slotTxt">${rs.length?"O escribe lo que sea":"¿Qué vais a comer?"}</label>
+      <div class="addbox" style="box-shadow:none"><input id="slotTxt" maxlength="50" value="${esc(cur&&cur.text||"")}" placeholder="Ej.: Sobras, cenamos fuera…"><button type="submit">Guardar</button></div></form>
+    <div class="row">${cur?`<button class="btn quiet" id="slotDel">Quitar</button>`:""}<button class="btn quiet" id="slotNew">${ICON.plus}Crear receta nueva</button></div>`,el=>{
+      el.querySelectorAll("[data-pick-r]").forEach(b=>b.onclick=async()=>{await setMenuSlot(sid,day,meal,{recipeId:b.dataset.pickR});closeSheet();});
+      el.querySelector("#fSlot").onsubmit=async e=>{e.preventDefault();const v=el.querySelector("#slotTxt").value.trim(); await setMenuSlot(sid,day,meal,v?{text:v}:null); closeSheet();};
+      const d=el.querySelector("#slotDel"); if(d) d.onclick=async()=>{await setMenuSlot(sid,day,meal,null);closeSheet();};
+      el.querySelector("#slotNew").onclick=()=>openRecipeEdit(sid,null);
+    });
+}
+
+/* ============ Fotos ============ */
+function compressImage(file,max=380,q=0.72){
+  return new Promise((res,rej)=>{const r=new FileReader();
+    r.onload=()=>{const img=new Image(); img.onload=()=>{const k=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement("canvas");
+      c.width=Math.round(img.width*k); c.height=Math.round(img.height*k); c.getContext("2d").drawImage(img,0,0,c.width,c.height); res(c.toDataURL("image/jpeg",q));};
+      img.onerror=()=>rej(new Error("img")); img.src=r.result;};
+    r.onerror=()=>rej(new Error("read")); r.readAsDataURL(file);});
+}
+
+/* ============ Libreta de precios ============ */
+const DEFAULT_STORES=["Consum","Mercadona","Lidl","Carrefour","Dia","Mercado"];
+const storesOf=sp=>(sp&&Array.isArray(sp.stores)&&sp.stores.length)?sp.stores:DEFAULT_STORES;
+const slug=s=>norm(s).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"x";
+const priceKey=(sid,name,store)=>`${sid}__${slug(catalogName(name))}__${slug(store)}`;
+const pricesFor=(sid,name)=>[...S.prices.values()].filter(p=>p.spaceId===sid&&norm(p.product)===norm(catalogName(name))).sort((a,b)=>a.price-b.price);
+const bookPrice=(sid,name,store)=>store?S.prices.get(priceKey(sid,name,store))||null:null;
+const agoTxt=t=>{const d=Math.floor((Date.now()-t)/864e5); return d<=0?"hoy":d===1?"ayer":d<31?`hace ${d} días`:d<365?`hace ${Math.round(d/30)} ${Math.round(d/30)===1?"mes":"meses"}`:"hace más de un año";};
+async function recordPrice(sid,name,store,price,qty,unit){
+  price=+price; if(!store||!(price>0)) return;
+  const id=priceKey(sid,name,store); const ex=S.prices.get(id);
+  const last=ex&&ex.history&&ex.history.at(-1);
+  const hist=((ex&&ex.history)||[]).concat(last&&last.price===price&&Date.now()-last.at<864e5?[]:[{price,at:Date.now()}]).slice(-8);
+  try{ await S.db.doc("prices/"+id).set({spaceId:sid,product:catalogName(name),store,price,qty:qty||"",unit:unit||"",at:Date.now(),by:S.me,history:hist}); }catch(e){console.warn(e)}
+}
+function compareHTML(sp,pend){
+  if(!pend.length) return "";
+  const rows=storesOf(sp).map(st=>{let sum=0,n=0; pend.forEach(i=>{const b=bookPrice(sp.id,i.name,st); if(b){sum+=b.price;n++;}}); return {st,sum,n};}).filter(r=>r.n>0);
+  if(!rows.length) return "";
+  const maxN=Math.max(...rows.map(r=>r.n)); const full=rows.filter(r=>r.n===maxN);
+  const best=full.length>1?full.reduce((a,b)=>b.sum<a.sum?b:a):null;
+  rows.sort((a,b)=>b.n-a.n||a.sum-b.sum);
+  // Ahorro producto a producto
+  const tips=[]; let save=0;
+  pend.forEach(i=>{ const ps=pricesFor(sp.id,i.name); if(ps.length<2) return;
+    const mine=(i.details&&i.details.tienda)||(S.lists.get(i.listId)||{}).store; const cur=ps.find(x=>x.store===mine); const cheap=ps[0];
+    if(cur&&cheap.store!==cur.store&&cheap.price<cur.price){ const dif=cur.price-cheap.price; save+=dif; tips.push({name:i.name,store:cheap.store,dif}); } });
+  tips.sort((a,b)=>b.dif-a.dif);
+  const sub=best?`Más barato: ${esc(best.st)} · ${fmtEur(best.sum)}`
+    :full.length===1&&rows.length>1?`Solo ${esc(full[0].st)} tiene precio de ${maxN===pend.length?"todo":maxN+" productos"} · ${fmtEur(full[0].sum)}`
+    :`${esc(rows[0].st)} · ${fmtEur(rows[0].sum)} (${rows[0].n} de ${pend.length})`;
+  return `<details class="compare"><summary><span><strong>Comparar supermercados</strong><span class="cmp-sub">${sub}${save>0?` · podéis ahorrar ${fmtEur(save)}`:""}</span></span><span class="pu-chev" aria-hidden="true"></span></summary>
+    <ul class="cmp-rows">${rows.map(r=>`<li class="${best&&r===best?"best":""}"><span class="cmp-st">${esc(r.st)}</span><span class="cmp-cov">${r.n} de ${pend.length} productos</span><strong>${fmtEur(r.sum)}</strong></li>`).join("")}</ul>
+    ${tips.length?`<div class="cmp-tips"><p class="label">Dónde ahorrar</p><ul>${tips.slice(0,5).map(t=>`<li><span>${esc(t.name)}</span><span>${fmtEur(t.dif)} menos en <strong>${esc(t.store)}</strong></span></li>`).join("")}</ul></div>`:""}
+    <p class="fine">Con los precios de vuestra libreta. Cada súper suma solo los productos que tienen precio guardado allí, así que compara totales con el mismo número de productos.</p></details>`;
+}
+function mountPrices(sp){
+  $("#tabFixed").innerHTML=`<div class="price-tools" style="--sc:${colorVar(sp.color)}">
+    <div class="addbox"><label class="sr" for="prSearch">Buscar en la libreta</label><input id="prSearch" placeholder="Buscar producto…" value="${esc(S.priceQ||"")}"></div>
+    <div class="row"><button class="btn" id="prAdd">${ICON.plus}Añadir precio</button><button class="btn quiet" id="prStores">Supermercados</button></div></div>`;
+  $("#prSearch").oninput=e=>{S.priceQ=e.target.value;paintPricesTab(sp,$("#tabDyn"),colorVar(sp.color));};
+  $("#prAdd").onclick=()=>openPriceEdit(sp.id,null);
+  $("#prStores").onclick=()=>openStores(sp.id);
+}
+function paintPricesTab(sp,body,col){
+  const all=[...S.prices.values()].filter(p=>p.spaceId===sp.id);
+  if(!all.length){
+    body.innerHTML=`<div class="empty"><div style="font-size:40px">🏷️</div><p class="e-big">La libreta de precios está vacía</p><p>Cuando pongas en un producto el supermercado y lo que cuesta, el precio se guarda aquí. La próxima vez que alguien lo añada en ese súper, el precio aparecerá solo.</p></div>`;
+    return;
+  }
+  const q=norm(S.priceQ||""); const groups=new Map();
+  all.filter(p=>!q||norm(p.product).includes(q)||norm(p.store).includes(q)).forEach(p=>{const k=norm(p.product); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(p);});
+  const names=[...groups.keys()].sort();
+  if(!names.length){ body.innerHTML=`<p class="notice">No hay precios que coincidan con «${esc(S.priceQ)}».</p>`; return; }
+  body.innerHTML=`<p class="label">${names.length} ${names.length===1?"producto":"productos"} con precio</p><ul class="rows price-list">${names.map(k=>{
+    const ps=groups.get(k).sort((a,b)=>a.price-b.price); const c=findCat(ps[0].product);
+    return `<li class="price-row">${rowIcon({name:ps[0].product,icon:c&&c[1]})}<div class="pr-body"><span class="r-name">${esc(ps[0].product)}</span>
+      <div class="pr-stores">${ps.map((p,idx)=>`<button class="pr-chip${idx===0&&ps.length>1?" best":""}" data-prid="${esc(p.id)}"><span>${esc(p.store)}</span><strong>${fmtEur(p.price)}</strong>${p.qty?`<em>${esc(qtyText(p.qty,p.unit))}</em>`:""}</button>`).join("")}</div>
+      <span class="pr-when">Actualizado ${esc(agoTxt(Math.max(...ps.map(p=>p.at||0))))}</span></div></li>`;}).join("")}</ul>`;
+  body.querySelectorAll("[data-prid]").forEach(b=>b.onclick=()=>openPriceEdit(sp.id,b.dataset.prid));
+}
+function openPriceEdit(sid,id,preset){
+  const sp=S.spaces.get(sid); const p=id?S.prices.get(id):null; const pr=p||preset||{};
+  const stores=[...new Set([...storesOf(sp),pr.store].filter(Boolean))];
+  const hist=(p&&p.history)||[];
+  sheet(colorVar(sp.color),`<h2>${p?esc(p.product):"Añadir precio"}</h2>
+    ${p?`<p>${esc(p.store)} · actualizado ${esc(agoTxt(p.at))}${p.by?" por "+esc(pname(p.by)):""}</p>`:"<p>Guarda lo que cuesta un producto en un supermercado.</p>"}
+    <form id="fPrice" class="item-form">
+      <div class="grid2">
+        <div class="field" style="grid-column:1/-1"><label for="pfName">Producto</label><input id="pfName" maxlength="60" value="${esc(pr.product||"")}" placeholder="Ej.: Huevos" list="catList"><datalist id="catList">${CATALOG.map(c=>`<option value="${esc(c[0])}">`).join("")}</datalist></div>
+        <div class="field"><label for="pfStore">Supermercado</label><select id="pfStore">${stores.map(s=>`<option ${s===pr.store?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+        <div class="field"><label for="pfPrice">Precio (€)</label><input id="pfPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(pr.price||"")}" placeholder="Ej.: 2,45"></div>
+        <div class="field"><label for="pfQty">Por (cantidad)</label><input id="pfQty" type="number" inputmode="decimal" min="0" step="any" value="${esc(pr.qty||"")}" placeholder="Ej.: 1"></div>
+        <div class="field"><label for="pfUnit">Unidad</label><input id="pfUnit" maxlength="20" value="${esc(pr.unit||"")}" placeholder="Ej.: docena, kg, L"></div>
+      </div>
+      ${hist.length>1?`<div><p class="label">Evolución del precio</p><ul class="pr-hist">${hist.slice().reverse().map((h,k,arr)=>{const prev=arr[k+1]; const dif=prev?h.price-prev.price:0;
+        return `<li><span>${esc(new Date(h.at).toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"}))}</span><strong>${fmtEur(h.price)}</strong>${dif?`<em class="${dif>0?"up":"down"}">${dif>0?"▲":"▼"} ${fmtEur(Math.abs(dif))}</em>`:"<em></em>"}</li>`;}).join("")}</ul></div>`:""}
+      <div class="row"><button class="btn" type="submit">Guardar</button>${p?`<button class="btn quiet" type="button" id="pfDel" style="color:var(--danger)">Borrar</button>`:""}</div>
+    </form>`,el=>{
+      const q=s=>el.querySelector(s);
+      q("#fPrice").onsubmit=async e=>{e.preventDefault();
+        const name=q("#pfName").value.trim(), store=q("#pfStore").value, price=+q("#pfPrice").value;
+        if(!name||!(price>0)){toast("Escribe el producto y un precio mayor que 0");return;}
+        const newId=priceKey(sid,name,store);
+        if(p&&p.id!==newId){ try{await S.db.doc("prices/"+p.id).delete();}catch(x){} }
+        await recordPrice(sid,name,store,price,+q("#pfQty").value||"",q("#pfUnit").value.trim());
+        closeSheet(); toast("Precio guardado");
+      };
+      const d=q("#pfDel"); if(d) d.onclick=async()=>{try{await S.db.doc("prices/"+p.id).delete();closeSheet();toast("Precio borrado");}catch(x){err(x)}};
+    });
+}
+function openStores(sid){
+  const sp=S.spaces.get(sid); let list=[...storesOf(sp)];
+  const draw=el=>{el.querySelector("#stList").innerHTML=list.map((s,k)=>`<li><span>${esc(s)}</span><button type="button" class="r-edit" data-strm="${k}" aria-label="Quitar ${esc(s)}">${ICON.x}</button></li>`).join("");
+    el.querySelectorAll("[data-strm]").forEach(b=>b.onclick=()=>{list.splice(+b.dataset.strm,1);draw(el);});};
+  sheet(colorVar(sp.color),`<h2>Supermercados</h2><p>Los sitios donde soléis comprar. Aparecen al elegir dónde comprar cada producto.</p>
+    <ul class="store-list" id="stList"></ul>
+    <form id="fStore" class="addbox" style="box-shadow:none"><label class="sr" for="stNew">Nuevo supermercado</label><input id="stNew" maxlength="30" placeholder="Ej.: Alcampo, frutería Pepa"><button type="submit">Añadir</button></form>
+    <button class="btn block" id="stSave">Guardar</button>`,el=>{
+      draw(el);
+      el.querySelector("#fStore").onsubmit=e=>{e.preventDefault();const i=el.querySelector("#stNew");const v=i.value.trim();if(v&&!list.some(x=>norm(x)===norm(v))){list.push(v);draw(el);}i.value="";i.focus();};
+      el.querySelector("#stSave").onclick=async()=>{try{await S.db.doc("spaces/"+sid).update({stores:list.length?list:DEFAULT_STORES});closeSheet();toast("Supermercados guardados");}catch(x){err(x)}};
+    });
+}
+
+/* ============ Sheets ============ */
+/* Los formularios se manejan por clic/Enter: algunas vistas previas bloquean el envío de formularios */
+function wireForms(root){
+  root.querySelectorAll("form").forEach(f=>{
+    const h=f.onsubmit; if(!h) return; f.onsubmit=null;
+    const run=()=>{ if(f.dataset.busy) return; h({preventDefault(){},target:f}); };
+    f.addEventListener("submit",e=>{e.preventDefault();run();});
+    f.querySelectorAll('button[type="submit"]').forEach(b=>b.addEventListener("click",e=>{e.preventDefault();run();}));
+    f.querySelectorAll("input").forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.isComposing){e.preventDefault();run();}}));
+  });
+}
+
+function sheet(color,html,onMount){
+  const root=$("#sheetRoot");
+  root.innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" style="--sc:${color}">${html}</div></div>`;
+  $("#scrim").onclick=e=>{if(e.target.id==="scrim")closeSheet();};
+  document.onkeydown=e=>{if(e.key==="Escape")closeSheet();};
+  onMount&&onMount(root.querySelector(".sheet"));
+  wireForms(root);
+  const f=root.querySelector("input:not([type=hidden])"); if(f&&window.matchMedia("(min-width:640px)").matches) f.focus();
+}
+function closeSheet(){$("#sheetRoot").innerHTML="";document.onkeydown=null;}
+function pickerHTML(id,opts,sel,kind){
+  return `<div class="choices" id="${id}">${opts.map(o=>kind==="color"
+    ?`<button type="button" class="swatch" data-v="${o}" aria-label="${o}" aria-pressed="${o===sel}" style="background:var(--s-${o})"></button>`
+    :`<button type="button" class="choice" data-v="${o}" aria-pressed="${o===sel}">${o}</button>`).join("")}</div>`;
+}
+function wirePicker(el,id,onPick){el.querySelectorAll(`#${id} [data-v]`).forEach(b=>b.onclick=()=>{el.querySelectorAll(`#${id} [data-v]`).forEach(x=>x.setAttribute("aria-pressed","false"));b.setAttribute("aria-pressed","true");onPick(b.dataset.v);});}
+
+function openNewSpace(){
+  if(!S.db) return toast("Abre la app con tu cuenta de claude.ai para crear espacios.");
+  const st={emoji:"🏠",color:"verde"};
+  sheet("var(--s-verde)",`
+    <h2>Nuevo espacio</h2><p>Un espacio agrupa listas y personas. Por ejemplo, tu casa, la de tus padres o un viaje.</p>
+    <form id="fSpace" class="field" style="gap:16px">
+      <div class="field"><label for="spName">Nombre</label><input id="spName" maxlength="40" placeholder="Casa" required></div>
+      <div class="field"><label>Icono</label>${pickerHTML("pEmoji",SPACE_EMOJI,st.emoji)}</div>
+      <div class="field"><label>Color</label>${pickerHTML("pColor",SPACE_COLORS,st.color,"color")}</div>
+      <button class="btn block" type="submit">Crear espacio</button>
+    </form>`,el=>{
+      wirePicker(el,"pEmoji",v=>st.emoji=v);
+      wirePicker(el,"pColor",v=>{st.color=v;el.style.setProperty("--sc",`var(--s-${v})`);});
+      el.querySelector("#fSpace").onsubmit=async e=>{e.preventDefault();const n=el.querySelector("#spName").value.trim();if(!n)return;
+        const btn=el.querySelector("button[type=submit]");btn.disabled=true;btn.textContent="Creando…";
+        try{const sid=await createSpace({name:n,...st});S.grace=sid;closeSheet();go({name:"space",spaceId:sid});setTimeout(()=>openInvite(sid,true),350);}catch(x){btn.disabled=false;btn.textContent="Crear espacio";err(x);}
+      };
+    });
+}
+function inviteLink(code){ if(HAS_FIREBASE) return location.origin+location.pathname+"#join-"+code; return APP_URL?`${APP_URL}#join-${code}`:""; }
+async function copy(text,el){
+  try{await navigator.clipboard.writeText(text);toast("Copiado");}
+  catch(e){ if(el){const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);} toast("Selecciona el texto y cópialo"); }
+}
+function openInvite(sid,fresh){
+  const sp=S.spaces.get(sid); if(!sp) return; const link=inviteLink(sp.code);
+  const msg=`Únete a «${sp.name}» en La Cesta Familiar${link?": "+link:""} (código ${sp.code})`;
+  const mem=membersOf(sid);
+  sheet(colorVar(sp.color),`
+    <h2>${fresh?"¡Espacio creado! Invita a tu familia":"Invitar a «"+esc(sp.name)+"»"}</h2>
+    <p>Comparte este enlace o el código. Quien lo abra entrará en este espacio y verá todas sus listas.</p>
+    <div class="invite-box">
+      <div class="code" id="invCode">${esc(sp.code)}</div>
+      ${link?`<div class="invite-link" id="invLink">${esc(link)}</div>`:""}
+      <div class="row">
+        ${link&&navigator.share?`<button class="btn" id="cShare">${ICON.share}Enviar…</button>`:""}
+        ${link?`<button class="btn ${navigator.share?"quiet":""}" id="cLink">${navigator.share?"":ICON.share}Copiar enlace</button>`:""}
+        <button class="btn ${link?"quiet":""}" id="cMsg">Copiar mensaje</button>
+      </div>
+    </div>
+    <div><p class="label">Cómo funciona</p>
+      <ol class="steps"><li>Mándales el enlace por WhatsApp o como prefieras.</li><li>Al abrirlo, entran con su cuenta de Google o con su correo.</li><li>La app les une a este espacio automáticamente. Si no, pueden escribir el código en «Unirme con un enlace».</li></ol></div>
+    <div><p class="label">Miembros <span class="count">${mem.length}</span></p><div class="members">${mem.map(m=>`<div class="member"><img referrerpolicy="no-referrer" alt="" src="${esc(S.profiles[m.uid]?.avatarUrl||"")}"><span>${esc(pname(m.uid))}${m.uid===S.me&&pname(m.uid)!=="Tú"?" (tú)":""}</span><em>${m.role==="creator"?"creó el espacio":""}</em></div>`).join("")}</div></div>
+    <button class="btn quiet block" id="cClose">Hecho</button>`,el=>{
+      const cl=el.querySelector("#cLink"); if(cl) cl.onclick=()=>copy(link,el.querySelector("#invLink"));
+      const sh=el.querySelector("#cShare"); if(sh) sh.onclick=async()=>{ try{ await navigator.share({title:"La Cesta Familiar",text:`Únete a «${sp.name}» en La Cesta Familiar (código ${sp.code})`,url:link}); }catch(e){} };
+      el.querySelector("#cMsg").onclick=()=>copy(msg,el.querySelector("#invCode"));
+      el.querySelector("#cClose").onclick=closeSheet;
+    });
+}
+function openJoin(prefill){
+  if(!S.db){ if(prefill){S.pendingJoin=prefill;} return; }
+  S.pendingJoin=null;
+  sheet("var(--accent)",`
+    <h2>Unirme a un espacio</h2><p>Pega el enlace que te han enviado o escribe el código de 6 letras.</p>
+    <form id="fJoin" class="field" style="gap:14px">
+      <div class="field"><label for="jCode">Enlace o código</label><input id="jCode" value="${esc(prefill||"")}" placeholder="Ej.: K7MP2Q" autocapitalize="characters"></div>
+      <p id="jErr" style="color:var(--danger)" hidden></p>
+      <button class="btn block" type="submit">Unirme</button>
+    </form>`,el=>{
+      el.querySelector("#fJoin").onsubmit=async e=>{e.preventDefault();
+        const raw=el.querySelector("#jCode").value.trim(); const m=raw.match(/join-([A-Za-z0-9]{6})\b/)||raw.match(/^([A-Za-z0-9]{6})$/);
+        const er=el.querySelector("#jErr");
+        if(!m){er.textContent="Escribe un código de 6 caracteres o pega el enlace completo.";er.hidden=false;return;}
+        const btn=el.querySelector("button[type=submit]");btn.disabled=true;btn.textContent="Buscando…";
+        try{const r=await joinByCode(m[1].toUpperCase());
+          if(!r.ok){er.textContent=r.msg;er.hidden=false;btn.disabled=false;btn.textContent="Unirme";return;}
+          closeSheet(); toast(r.already?"Ya eras miembro de este espacio":"¡Te has unido al espacio!");
+          S.grace=r.sid;setTimeout(()=>go({name:"space",spaceId:r.sid}),r.already?0:600);
+        }catch(x){btn.disabled=false;btn.textContent="Unirme";err(x);}
+      };
+      if(prefill) el.querySelector("button[type=submit]").focus();
+    });
+}
+function openNewList(sid,editId){
+  const sp=S.spaces.get(sid); const l=editId?S.lists.get(editId):null; const st={emoji:l?.emoji||"🛒"};
+  sheet(colorVar(sp.color),`
+    <h2>${l?"Editar lista":"Nueva lista"}</h2>
+    <form id="fList" class="field" style="gap:16px">
+      <div class="field"><label for="lName">Nombre</label><input id="lName" maxlength="40" value="${esc(l?.name||"")}" placeholder="Supermercado" required></div>
+      <div class="field"><label>Icono</label>${pickerHTML("pLE",LIST_EMOJI,st.emoji)}</div>
+      <button class="btn block" type="submit">${l?"Guardar":"Crear lista"}</button>
+    </form>`,el=>{
+      wirePicker(el,"pLE",v=>st.emoji=v);
+      el.querySelector("#fList").onsubmit=async e=>{e.preventDefault();const n=el.querySelector("#lName").value.trim();if(!n)return;
+        try{ if(l){await S.db.doc("lists/"+l.id).update({name:n,emoji:st.emoji});closeSheet();}
+          else{const r=await S.db.collection("lists").add({spaceId:sid,name:n,emoji:st.emoji,createdAt:Date.now(),createdBy:S.me});S.graceList=r.id;closeSheet();go({name:"list",spaceId:sid,listId:r.id});}
+        }catch(x){err(x)}};
+    });
+}
+function confirmSheet(color,title,text,label,action){
+  sheet(color,`<h2>${esc(title)}</h2><p>${esc(text)}</p><div class="row"><button class="btn danger" id="cOk">${esc(label)}</button><button class="btn quiet" id="cNo">Cancelar</button></div>`,el=>{
+    el.querySelector("#cNo").onclick=closeSheet;
+    el.querySelector("#cOk").onclick=async()=>{const b=el.querySelector("#cOk");b.disabled=true;try{await action();closeSheet();}catch(x){b.disabled=false;err(x);}};
+  });
+}
+function openSpaceOptions(sid){
+  const sp=S.spaces.get(sid); const col=colorVar(sp.color); const isCreator=sp.createdBy===S.me; const st={emoji:sp.emoji||"🏠",color:sp.color||"verde"};
+  sheet(col,`
+    <h2>Ajustes del espacio</h2>
+    <form id="fSp" class="field" style="gap:16px">
+      <div class="field"><label for="eName">Nombre</label><input id="eName" maxlength="40" value="${esc(sp.name)}"></div>
+      <div class="field"><label>Icono</label>${pickerHTML("eEmoji",SPACE_EMOJI,st.emoji)}</div>
+      <div class="field"><label>Color</label>${pickerHTML("eColor",SPACE_COLORS,st.color,"color")}</div>
+      <button class="btn block" type="submit">Guardar cambios</button>
+    </form>
+    <div class="row">
+      <button class="btn quiet" id="oLeave">Salir del espacio</button>
+      ${isCreator?`<button class="btn quiet" id="oDel" style="color:var(--danger)">Eliminar espacio</button>`:""}
+    </div>`,el=>{
+      wirePicker(el,"eEmoji",v=>st.emoji=v); wirePicker(el,"eColor",v=>{st.color=v;el.style.setProperty("--sc",`var(--s-${v})`);});
+      el.querySelector("#fSp").onsubmit=async e=>{e.preventDefault();const n=el.querySelector("#eName").value.trim()||sp.name;
+        try{await S.db.doc("spaces/"+sid).update({name:n,emoji:st.emoji,color:st.color});closeSheet();toast("Guardado");}catch(x){err(x)}};
+      el.querySelector("#oLeave").onclick=()=>confirmSheet(col,"¿Salir de «"+sp.name+"»?","Dejarás de ver sus listas. Podrás volver con el enlace de invitación.","Salir",async()=>{
+        if(HAS_FIREBASE) await fbLeaveSpace(sid); else await S.db.doc(`memberships/${sid}__${S.me}`).delete(); go({name:"home"});});
+      const d=el.querySelector("#oDel"); if(d) d.onclick=()=>confirmSheet(col,"¿Eliminar «"+sp.name+"»?","Se borrarán todas sus listas y productos para todos los miembros. No se puede deshacer.","Eliminar para todos",async()=>{
+        go({name:"home"}); await deleteSpace(sid); toast("Espacio eliminado");});
+    });
+}
+function openListOptions(lid){
+  const l=S.lists.get(lid); const sp=S.spaces.get(l.spaceId); const col=colorVar(sp.color);
+  const done=itemsOf(lid).filter(i=>i.done);
+  sheet(col,`<h2>${esc(l.emoji||"")} ${esc(l.name)}</h2>
+    <div class="row" style="flex-direction:column">
+      <div class="field"><label for="lStore">Supermercado habitual de esta lista</label>
+        <div class="row" style="flex-wrap:nowrap"><select id="lStore" style="flex:1"><option value="">Ninguno</option>${storesOf(sp).map(st=>`<option ${st===l.store?"selected":""}>${esc(st)}</option>`).join("")}</select><button class="btn" id="lStoreSave">Guardar</button></div>
+        <p class="fine">Los productos nuevos se apuntarán en este súper y cogerán su precio de la libreta.</p></div>
+      <button class="btn quiet block" id="lEdit">${ICON.pen}Cambiar nombre o icono</button>
+      ${done.length?`<button class="btn quiet block" id="lClear">Vaciar «Comprado hace poco» (${done.length})</button>`:""}
+      <button class="btn quiet block" id="lDel" style="color:var(--danger)">Eliminar lista</button>
+    </div>`,el=>{
+      el.querySelector("#lEdit").onclick=()=>openNewList(sp.id,lid);
+      el.querySelector("#lStoreSave").onclick=async()=>{const v=el.querySelector("#lStore").value; try{await S.db.doc("lists/"+lid).update({store:v}); closeSheet(); toast(v?`Supermercado habitual: ${v}`:"Sin supermercado habitual");}catch(x){err(x)}};
+      const c=el.querySelector("#lClear"); if(c) c.onclick=async()=>{closeSheet();for(const i of done){try{await S.db.doc("items/"+i.id).delete();}catch(e){}}toast("Historial vaciado");};
+      el.querySelector("#lDel").onclick=()=>confirmSheet(col,"¿Eliminar «"+l.name+"»?","Se borrará la lista y sus productos para todos los miembros del espacio.","Eliminar lista",async()=>{
+        const its=itemsOf(lid); go({name:"space",spaceId:sp.id});
+        for(const i of its) await S.db.doc("items/"+i.id).delete();
+        for(const pu of [...S.purchases.values()].filter(x=>x.listId===lid)) await S.db.doc("purchases/"+pu.id).delete();
+        await S.db.doc("lists/"+lid).delete();});
+    });
+}
+/* ============ Fichas de producto ============ */
+const UNITS={0:["kg","g","unidades","manojo","bolsa","malla"],1:["g","kg","unidades","bandeja","filetes","piezas"],2:["unidades","L","ml","pack","docena","g"],3:["unidades","barras","paquete","g"],4:["unidades","paquete","g","kg","L","lata","bote"],5:["botellas","L","ml","latas","pack","brik"],6:["unidades","bolsa","caja","g","kg"],7:["unidades","L","pack","rollos","paquete"],8:["unidades","pack","rollos","ml","paquete"],9:["paquete","unidades","kg","latas","bolsa"],10:["unidades","paquete","pack"]};
+const DEFAULT_UNIT={"Leche":"L","Huevos":"docena","Agua":"botellas","Cerveza":"latas","Refrescos":"latas","Pan":"barras","Barra de pan":"barras","Papel higiénico":"rollos","Papel de cocina":"rollos","Plátanos":"kg","Manzanas":"kg","Naranjas":"kg","Patatas":"kg","Tomates":"kg","Lechuga":"unidades","Aguacates":"unidades","Pollo":"g","Carne picada":"g","Yogures":"pack","Vino":"botellas"};
+const VARIANTS={
+ "Leche":["Entera","Semidesnatada","Desnatada","Sin lactosa"],"Leche vegetal":["Avena","Soja","Almendra","Arroz","Coco"],
+ "Yogures":["Natural","Griego","Desnatado","De sabores","Bífidus","Proteínas"],"Queso":["Fresco","Tierno","Semicurado","Curado","En lonchas","De untar"],
+ "Huevos":["Talla M","Talla L","Talla XL"],"Mantequilla":["Con sal","Sin sal"],"Nata":["Para cocinar","Para montar"],
+ "Pan":["Blanco","Integral","Sin gluten","Centeno","Multicereales"],"Pan de molde":["Blanco","Integral","Sin corteza","Sin gluten"],
+ "Café":["Molido","En grano","Cápsulas","Soluble","Descafeinado"],"Pasta":["Espaguetis","Macarrones","Tallarines","Fusilli","Integral","Sin gluten"],
+ "Arroz":["Redondo","Largo","Bomba","Basmati","Integral"],"Aceite de oliva":["Virgen extra","Virgen","Suave","Intenso"],
+ "Refrescos":["Normal","Zero","Light"],"Cerveza":["Normal","Sin alcohol","Tostada","Lager","IPA"],"Vino":["Tinto","Blanco","Rosado"],
+ "Agua":["Sin gas","Con gas"],"Zumo":["Naranja","Piña","Melocotón","Multifrutas","Exprimido"],
+ "Detergente":["Líquido","Cápsulas","Polvo"],"Lavavajillas":["Pastillas","Líquido","A mano"],"Papel higiénico":["Doble capa","Triple capa","Compacto"],
+ "Pañales":["Talla 1","Talla 2","Talla 3","Talla 4","Talla 5","Talla 6"],"Comida de perro":["Pienso","Húmeda","Snacks"],"Comida de gato":["Pienso","Húmeda","Snacks"],
+ "Champú":["Normal","Anticaspa","Cabello graso","Cabello seco","Infantil"],"Tomates":["Pera","Rama","Cherry","Ensalada","Raf"],
+ "Manzanas":["Golden","Fuji","Pink Lady","Granny Smith","Royal Gala"],"Patatas":["Para freír","Para cocer","Nuevas","Para horno"],
+ "Pollo":["Pechuga","Muslos","Contramuslos","Alitas","Entero"],"Ternera":["Filetes","Para guisar","Solomillo","Entrecot"],"Cerdo":["Lomo","Costillas","Secreto","Chuletas"],
+ "Jamón":["Serrano","Ibérico","Cocido","York"],"Atún en lata":["En aceite","Al natural","En escabeche"],"Chocolate":["Con leche","Negro","Blanco","Para fundir"],
+ "Cereales":["Copos de maíz","Con chocolate","Muesli","Avena"],"Pizza":["Margarita","Barbacoa","4 quesos","Jamón y queso"],"Helado":["Vainilla","Chocolate","Fresa","Turrón"],
+ "Naranjas":["De mesa","De zumo"],"Pescado":["Merluza","Lubina","Dorada","Bacalao"],"Galletas":["María","Digestive","Con chocolate","Integrales"]
+};
+const CAT_FIELDS={
+ 0:[{k:"madurez",l:"Madurez",o:["Indiferente","Verde","En su punto","Madura"]},{k:"eco",l:"Ecológico",o:["Indiferente","Sí","No"]},{k:"origen",l:"Origen",t:"Ej.: Valencia"}],
+ 1:[{k:"estado",l:"Estado",o:["Fresco","Congelado","Indiferente"]},{k:"donde",l:"Dónde",o:["Indiferente","Mostrador","Envasado"]},{k:"corte",l:"Preparación",t:"Ej.: fileteado, troceado"}],
+ 2:[{k:"eco",l:"Ecológico",o:["Indiferente","Sí","No"]},{k:"gallina",l:"Tipo de gallina",o:["Indiferente","Camperas","Ecológicas","Suelo"],only:["Huevos"]}],
+ 3:[{k:"cortado",l:"¿Cortado?",o:["Indiferente","Sí","No"]},{k:"gluten",l:"Sin gluten",o:["No hace falta","Sí"]}],
+ 4:[{k:"formato",l:"Formato",t:"Ej.: bote de cristal, 1 kg"},{k:"gluten",l:"Sin gluten",o:["No hace falta","Sí"]}],
+ 5:[{k:"frio",l:"¿Comprarlo frío?",o:["Indiferente","Sí, de la nevera"]},{k:"envase",l:"Envase",o:["Indiferente","Vidrio","Plástico","Lata","Brik"]}],
+ 6:[{k:"raciones",l:"Raciones",n:true}],
+ 7:[{k:"aroma",l:"Aroma",t:"Ej.: lavanda"},{k:"usos",l:"Lavados o usos",n:true}],
+ 8:[{k:"para",l:"Para",t:"Ej.: piel sensible"},{k:"aroma",l:"Aroma",t:"Ej.: neutro"}],
+ 9:[{k:"para",l:"Para quién",t:"Ej.: el bebé, la perra"},{k:"etapa",l:"Edad o etapa",t:"Ej.: cachorro, +6 meses"}],
+ 10:[]
+};
+/* kcal, proteínas, hidratos, grasas por 100 g o 100 ml (valores orientativos) */
+const NUTR={"Plátanos":[89,1.1,23,.3],"Manzanas":[52,.3,14,.2],"Naranjas":[47,.9,12,.1],"Limones":[29,1.1,9,.3],"Fresas":[32,.7,8,.3],"Uvas":[69,.7,18,.2],"Sandía":[30,.6,8,.2],"Melón":[34,.8,8,.2],"Peras":[57,.4,15,.1],"Melocotones":[39,.9,10,.3],"Piña":[50,.5,13,.1],"Kiwis":[61,1.1,15,.5],"Cerezas":[63,1.1,16,.2],"Mango":[60,.8,15,.4],"Aguacates":[160,2,9,15],"Tomates":[18,.9,3.9,.2],"Lechuga":[15,1.4,2.9,.2],"Espinacas":[23,2.9,3.6,.4],"Pepino":[15,.7,3.6,.1],"Calabacín":[17,1.2,3.1,.3],"Zanahorias":[41,.9,10,.2],"Patatas":[77,2,17,.1],"Cebollas":[40,1.1,9,.1],"Ajos":[149,6.4,33,.5],"Pimientos":[20,.9,4.6,.2],"Berenjena":[25,1,6,.2],"Brócoli":[34,2.8,7,.4],"Champiñones":[22,3.1,3.3,.3],"Maíz":[86,3.3,19,1.4],
+"Pollo":[165,31,0,3.6],"Carne picada":[250,17,0,20],"Ternera":[190,26,0,9],"Cerdo":[242,27,0,14],"Jamón":[241,31,0,13],"Embutido":[330,22,2,26],"Bacon":[541,37,1.4,42],"Salchichas":[300,12,3,27],"Pescado":[90,19,0,1],"Salmón":[208,20,0,13],"Merluza":[86,17,0,1.8],"Gambas":[99,24,.2,.3],"Calamares":[92,16,3,1.4],"Mejillones":[86,12,3.7,2.2],
+"Leche":[64,3.3,4.8,3.6],"Huevos":[143,13,.7,9.5],"Queso":[350,25,1.3,27],"Queso rallado":[400,28,2,30],"Yogures":[61,3.5,4.7,3.3],"Mantequilla":[717,.9,.1,81],"Nata":[337,2.2,3,35],"Leche vegetal":[40,1,6,1.5],
+"Pan":[265,9,49,3.2],"Barra de pan":[270,9,55,1.5],"Pan de molde":[265,8,49,4],"Croissants":[406,8,46,21],"Magdalenas":[420,6,50,21],"Tortillas de trigo":[310,8,50,8],
+"Arroz":[360,7,79,.6],"Pasta":[371,13,75,1.5],"Harina":[364,10,76,1],"Azúcar":[387,0,100,0],"Sal":[0,0,0,0],"Aceite de oliva":[884,0,0,100],"Vinagre":[18,0,.4,0],"Tomate frito":[80,1.5,10,3.5],"Garbanzos":[364,19,61,6],"Lentejas":[352,25,60,1],"Alubias":[333,23,60,.8],"Atún en lata":[198,26,0,10],"Café":[2,.1,0,0],"Té":[1,0,.3,0],"Cacao":[375,6,79,3],"Chocolate":[546,5,61,31],"Cereales":[379,7,84,1],"Galletas":[480,6,68,20],"Miel":[304,.3,82,0],"Mermelada":[250,.4,62,.1],"Frutos secos":[607,20,21,54],"Patatas fritas":[536,7,53,35],"Palomitas":[387,13,78,4.5],"Ketchup":[112,1.7,26,.1],"Mayonesa":[680,1,.6,75],"Especias":[300,12,55,8],
+"Agua":[0,0,0,0],"Zumo":[45,.7,10,.2],"Refrescos":[42,0,10.6,0],"Cerveza":[43,.5,3.6,0],"Vino":[85,.1,2.6,0],"Cava":[76,.1,1.5,0],
+"Helado":[207,3.5,24,11],"Pizza":[266,11,33,10],"Verduras congeladas":[65,3,11,.5],"Croquetas":[250,7,25,13],"Hielo":[0,0,0,0]};
+const LIQUIDS=new Set(["Leche","Leche vegetal","Nata","Aceite de oliva","Vinagre"]);
+const isFood=c=>c>=0&&c<=6;
+const per100=(name,cat)=>(cat===5||LIQUIDS.has(name))?"100 ml":"100 g";
+const fmtN=(n,d=0)=>Number(n).toLocaleString("es-ES",{maximumFractionDigits:d});
+const fmtEur=n=>Number(n).toLocaleString("es-ES",{style:"currency",currency:"EUR"});
+function catalogName(name){const c=CAT_BY.get(norm(name));return c?c[0]:name;}
+function specOf(d){
+  if(!d) return "";
+  const parts=[];
+  if(d.qty) parts.push(qtyText(d.qty,d.unit));
+  if(d.variedad) parts.push(d.variedad);
+  if(d.marca) parts.push(d.marca);
+  if(d.tienda) parts.push(d.tienda);
+  if(d.precio) parts.push("≈ "+fmtEur(d.precio));
+  if(d.nota) parts.push(d.nota);
+  return parts.join(" · ").slice(0,120);
+}
+function gramsOf(q,u){ if(!q) return null; return {g:q,kg:q*1000,ml:q,L:q*1000}[u]??null; }
+
+function openItem(id){
+  const it=S.items.get(id); if(!it) return; const sp=S.spaces.get(it.spaceId); const col=colorVar(sp.color);
+  const base=catalogName(it.name); const cat=it.cat??10;
+  const d=Object.assign({qty:"",unit:DEFAULT_UNIT[base]||UNITS[cat][0],variedad:"",marca:"",precio:"",nota:it.details?"":(it.spec||"")},it.details||{});
+  const nu=(it.details&&it.details.nutr)||(NUTR[base]?{kcal:NUTR[base][0],p:NUTR[base][1],c:NUTR[base][2],f:NUTR[base][3]}:{kcal:"",p:"",c:"",f:""});
+  const units=[...new Set([...(UNITS[cat]||UNITS[10]),d.unit].filter(Boolean))];
+  const variants=VARIANTS[base];
+  const fields=(CAT_FIELDS[cat]||[]).filter(f=>!f.only||f.only.includes(base));
+  const when=it.addedAt?new Date(it.addedAt).toLocaleDateString("es-ES",{day:"numeric",month:"short"}):"";
+  const fieldHTML=f=>{const v=d[f.k]??"";
+    if(f.o) return `<div class="field"><label for="x_${f.k}">${esc(f.l)}</label><select id="x_${f.k}">${f.o.map(o=>`<option ${o===v?"selected":""}>${esc(o)}</option>`).join("")}</select></div>`;
+    return `<div class="field"><label for="x_${f.k}">${esc(f.l)}</label><input id="x_${f.k}" ${f.n?'type="number" inputmode="numeric" min="0"':""} maxlength="40" value="${esc(v)}" placeholder="${esc(f.t||"")}"></div>`;};
+  const food=isFood(cat); const p100=per100(base,cat);
+  sheet(col,`
+    <div class="item-head"><span class="item-ico">${esc(it.icon||(CAT_BY.get(norm(it.name))||[])[1]||"🛒")}</span>
+      <div><h2>${esc(it.name)}</h2><p>${esc(CATS[cat]||"Otros")} · ${it.done?"comprado":"añadido"} por ${esc(pname(it.done?it.doneBy:it.addedBy))}${when&&!it.done?" el "+esc(when):""}</p></div></div>
+    <form id="fItem" class="item-form">
+      <section class="fs"><p class="label">Cantidad</p>
+        <div class="grid2">
+          <div class="field"><label for="iQty">Cuánto</label><input id="iQty" type="number" inputmode="decimal" min="0" step="any" value="${esc(d.qty)}" placeholder="Ej.: 2"></div>
+          <div class="field"><label for="iUnit">Unidad</label><select id="iUnit">${units.map(u=>`<option ${u===d.unit?"selected":""}>${esc(u)}</option>`).join("")}</select></div>
+        </div>
+      </section>
+      <section class="fs"><p class="label">Detalles</p>
+        <div class="grid2">
+          ${variants?`<div class="field"><label for="iVar">Variedad</label><select id="iVar"><option value="">Indiferente</option>${variants.map(o=>`<option ${o===d.variedad?"selected":""}>${esc(o)}</option>`).join("")}</select></div>`
+                    :`<div class="field"><label for="iVar">Tipo o variedad</label><input id="iVar" maxlength="40" value="${esc(d.variedad)}" placeholder="Opcional"></div>`}
+          <div class="field"><label for="iBrand">Marca preferida</label><input id="iBrand" maxlength="40" value="${esc(d.marca)}" placeholder="Cualquiera"></div>
+          ${fields.map(fieldHTML).join("")}
+          <div class="field"><label for="iStore">Supermercado</label><select id="iStore"><option value="">Indiferente</option>${[...new Set([...storesOf(sp),d.tienda].filter(Boolean))].map(st=>`<option ${st===d.tienda?"selected":""}>${esc(st)}</option>`).join("")}</select></div>
+          <div class="field"><label for="iPrice">Precio (€)</label><input id="iPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(d.precio)}" placeholder="Ej.: 3,50"></div>
+          <div class="price-hint" id="pHint"></div>
+        </div>
+      </section>
+      ${food?`<section class="fs nutri"><p class="label">Información nutricional <span class="label-note" style="color:var(--muted)">por ${p100}</span></p>
+        <div class="grid4">
+          <div class="field"><label for="nK">Calorías</label><input id="nK" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.kcal)}"><span class="unit">kcal</span></div>
+          <div class="field"><label for="nP">Proteínas</label><input id="nP" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.p)}"><span class="unit">g</span></div>
+          <div class="field"><label for="nC">Hidratos</label><input id="nC" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.c)}"><span class="unit">g</span></div>
+          <div class="field"><label for="nF">Grasas</label><input id="nF" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.f)}"><span class="unit">g</span></div>
+        </div>
+        <div class="nutri-bar" id="nBar"></div>
+        <div class="nutri-legend"><span><i style="background:var(--s-mar)"></i>Proteínas</span><span><i style="background:var(--mustard)"></i>Hidratos</span><span><i style="background:var(--s-tomate)"></i>Grasas</span></div>
+        <p class="nutri-total" id="nTot"></p>
+        ${NUTR[base]?`<p class="fine">Valores orientativos de referencia. Puedes cambiarlos por los de la etiqueta.</p>`:""}
+      </section>`:""}
+      <section class="fs"><p class="label">Foto del producto</p>
+        <div class="photo-box">
+          <div class="photo-prev" id="phPrev">${d.photo?`<img referrerpolicy="no-referrer" src="${esc(d.photo)}" alt="Foto de ${esc(it.name)}">`:`<span>Sin foto</span>`}</div>
+          <div class="photo-actions">
+            <label class="btn quiet" for="phFile">${d.photo?"Cambiar foto":"Añadir foto"}</label>
+            <input id="phFile" type="file" accept="image/*" capture="environment" class="sr">
+            <button type="button" class="btn quiet" id="phDel" ${d.photo?"":"hidden"}>Quitar foto</button>
+            <p class="fine">Haz una foto a la marca exacta para que quien compre coja la correcta.</p>
+          </div>
+        </div>
+      </section>
+      <section class="fs"><p class="label">Quién lo compra</p>
+        <div class="field"><label for="iWho">Asignar a</label><select id="iWho"><option value="">Cualquiera</option>${membersOf(it.spaceId).map(m=>`<option value="${esc(m.uid)}" ${m.uid===it.assignee?"selected":""}>${esc(pname(m.uid))}${m.uid===S.me&&pname(m.uid)!=="Tú"?" (tú)":""}</option>`).join("")}</select></div>
+      </section>
+      <section class="fs"><p class="label">Más</p>
+        <div class="field"><label for="iName">Nombre</label><input id="iName" maxlength="60" value="${esc(it.name)}"></div>
+        <div class="field"><label for="iCat">Sección del súper</label><select id="iCat">${CATS.map((c,k)=>`<option value="${k}" ${k===cat?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+        <div class="field"><label for="iNote">Nota para quien compre</label><input id="iNote" maxlength="80" value="${esc(d.nota)}" placeholder="Ej.: si no hay, la de otra marca"></div>
+      </section>
+      <div class="row"><button class="btn" type="submit">Guardar</button><button class="btn quiet" type="button" id="iDel" style="color:var(--danger)">Quitar de la lista</button></div>
+    </form>`,el=>{
+      const q=s=>el.querySelector(s); const num=s=>{const v=q(s)?.value;return v===""||v==null?"":Math.max(0,+v);};
+      const upd=()=>{ if(!food) return;
+        const k=+num("#nK")||0,p=+num("#nP")||0,c=+num("#nC")||0,f=+num("#nF")||0;
+        const tot=p*4+c*4+f*9||1;
+        q("#nBar").innerHTML=(p||c||f)?`<span style="flex:${p*4/tot};background:var(--s-mar)" title="Proteínas"></span><span style="flex:${c*4/tot};background:var(--mustard)" title="Hidratos"></span><span style="flex:${f*9/tot};background:var(--s-tomate)" title="Grasas"></span>`:"";
+        const grams=gramsOf(+num("#iQty"),q("#iUnit").value);
+        q("#nTot").innerHTML=grams&&k?`Con ${fmtN(+num("#iQty"),2)} ${esc(q("#iUnit").value)}: <strong>≈ ${fmtN(k*grams/100)} kcal</strong> en total`:(k?`Indica la cantidad en g, kg, ml o L para calcular las calorías totales.`:"");
+      };
+      el.querySelectorAll("input,select").forEach(x=>x.addEventListener("input",upd)); upd();
+      let photo=d.photo||"";
+      let autoPrice=null;
+      const hint=()=>{ const st=q("#iStore").value; const ps=pricesFor(sp.id,it.name); const box=q("#pHint");
+        const cur=ps.find(x=>x.store===st);
+        let h="";
+        if(cur) h+=`<p><strong>Último precio en ${esc(st)}:</strong> ${fmtEur(cur.price)}${cur.qty?` por ${esc(qtyText(cur.qty,cur.unit))}`:""} · ${esc(agoTxt(cur.at))}</p>`;
+        else if(st) h+=`<p>Aún no hay precio guardado en ${esc(st)}. Si lo pones, se recordará para la próxima vez.</p>`;
+        if(ps.length>1||(ps.length===1&&!cur)) h+=`<div class="pr-stores">${ps.map((x,k)=>`<button type="button" class="pr-chip${k===0&&ps.length>1?" best":""}" data-usest="${esc(x.store)}"><span>${esc(x.store)}</span><strong>${fmtEur(x.price)}</strong></button>`).join("")}</div>`;
+        box.innerHTML=h; box.hidden=!h;
+        box.querySelectorAll("[data-usest]").forEach(b=>b.onclick=()=>{q("#iStore").value=b.dataset.usest; onStore();});
+      };
+      const onStore=()=>{ const b=bookPrice(sp.id,it.name,q("#iStore").value); const pi=q("#iPrice");
+        if(b&&(!pi.value||+pi.value===autoPrice)){ pi.value=b.price; autoPrice=b.price; }
+        hint(); upd(); };
+      q("#iStore").addEventListener("change",onStore); hint();
+      q("#phFile").onchange=async ev=>{const f=ev.target.files&&ev.target.files[0]; if(!f) return;
+        try{ photo=await compressImage(f); q("#phPrev").innerHTML=`<img referrerpolicy="no-referrer" src="${photo}" alt="">`; q("#phDel").hidden=false; q('label[for="phFile"]').textContent="Cambiar foto"; }
+        catch(x){ toast("No se ha podido leer la imagen. Prueba con otra foto."); } };
+      q("#phDel").onclick=()=>{photo=""; q("#phPrev").innerHTML="<span>Sin foto</span>"; q("#phDel").hidden=true; q('label[for="phFile"]').textContent="Añadir foto";};
+      q("#fItem").onsubmit=async e=>{e.preventDefault();
+        const det={qty:num("#iQty"),unit:q("#iUnit").value,variedad:q("#iVar").value.trim(),marca:q("#iBrand").value.trim(),precio:num("#iPrice"),nota:q("#iNote").value.trim()};
+        fields.forEach(f=>{const v=q("#x_"+f.k).value.trim(); if(v&&v!=="Indiferente"&&v!=="No hace falta") det[f.k]=f.n?Math.max(0,+v):v;});
+        if(food) det.nutr={kcal:num("#nK"),p:num("#nP"),c:num("#nC"),f:num("#nF")};
+        if(photo) det.photo=photo;
+        det.tienda=q("#iStore").value||"";
+        const n=q("#iName").value.trim()||it.name;
+        try{const {id:_omit,...rest}=S.items.get(id)||it; await S.db.doc("items/"+id).set({...rest,name:n,cat:+q("#iCat").value,details:det,spec:specOf(det),assignee:q("#iWho").value||null});if(det.tienda&&det.precio) recordPrice(sp.id,n,det.tienda,det.precio,det.qty,det.unit); closeSheet();toast("Guardado");}catch(x){err(x)}};
+      q("#iDel").onclick=async()=>{try{await S.db.doc("items/"+id).delete();closeSheet();}catch(x){err(x)}};
+    });
+}
+
+/* Estilo: Cristal · Perla */
+document.documentElement.dataset.skin="cristal-perla";
+
+if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SW",e)));
+}
+boot();
+</script>
+</body>
+</html>

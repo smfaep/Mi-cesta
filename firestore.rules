@@ -1,0 +1,58 @@
+rules_version = '2';
+// Reglas de seguridad de La Cesta Familiar.
+// Cada espacio solo lo pueden leer y modificar sus miembros.
+// Para entrar en un espacio hace falta su código de invitación.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function spacePath(sid) { return /databases/$(database)/documents/spaces/$(sid); }
+    function isMember(sid) {
+      return signedIn() && exists(/databases/$(database)/documents/spaces/$(sid)/members/$(request.auth.uid));
+    }
+
+    // Perfil e índice de espacios de cada persona: solo suyo.
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+      match /spaces/{sid} {
+        allow read, write: if signedIn() && request.auth.uid == uid;
+      }
+    }
+
+    // Códigos de invitación: se pueden consultar uno a uno, nunca listar.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow create: if isMember(request.resource.data.spaceId);
+      allow delete: if isMember(resource.data.spaceId);
+    }
+
+    match /spaces/{sid} {
+      allow read: if isMember(sid);
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.code is string;
+      // Los miembros pueden editarlo, pero no cambiar quién lo creó ni su código.
+      allow update: if isMember(sid)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.code == resource.data.code;
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+
+      match /members/{uid} {
+        allow read: if isMember(sid);
+        // Para unirse hay que presentar el código correcto del espacio.
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.code == get(spacePath(sid)).data.code;
+        allow update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.code == resource.data.code;
+        // Cada uno puede salir; quien creó el espacio puede quitar a cualquiera.
+        allow delete: if signedIn() && (request.auth.uid == uid
+          || get(spacePath(sid)).data.createdBy == request.auth.uid);
+      }
+
+      // Listas, productos, compras, recetas, despensa, precios y menú.
+      match /{coll}/{docId} {
+        allow read, write: if coll != 'members' && isMember(sid);
+      }
+    }
+  }
+}
