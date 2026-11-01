@@ -445,6 +445,39 @@ body.store .catlabel{font-size:13px}
 [data-skin="cristal-perla"] .space-card .avatars img{border-color:var(--bg)}
 [data-skin="cristal-perla"] .sc-shop{color:var(--fg)}
 
+/* ---- v2: precios, autoría y despensa ---- */
+.r-price{display:flex;flex-direction:column;align-items:flex-end;flex:none;font-variant-numeric:tabular-nums;padding-left:4px;max-width:34%;text-align:right}
+.r-price strong{font-size:15px;line-height:1.2}
+.r-price small{font-size:11px;color:var(--muted);line-height:1.25}
+.r-price.book strong{color:var(--muted);font-weight:600}
+.r-who2{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:3px}
+.stack{display:inline-flex;flex:none}
+.stack img{width:22px;height:22px;border-radius:50%;border:2px solid var(--sheet,var(--surface));margin-left:-7px;object-fit:cover}
+.stack img:first-child{margin-left:0}
+.stack.sm img{width:16px;height:16px;border-width:1.5px;margin-left:-5px}
+.stack.sm img:first-child{margin-left:0}
+.who-box,.book-note{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border:1px dashed var(--fline,var(--line));border-radius:14px;padding:10px 12px;font-size:13.5px;color:var(--muted);line-height:1.45}
+.who-box{align-items:center}
+.who-box strong,.book-note strong{color:var(--fg)}
+.sum-card{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:12px 14px;box-shadow:var(--shadow)}
+.sum-card div{display:flex;flex-direction:column;min-width:0}
+.sum-card span{font-size:11.5px;color:var(--muted);font-weight:600}
+.sum-card strong{font-size:18px;font-variant-numeric:tabular-nums}
+.seg.full{display:flex;width:100%}
+.seg.full button{flex:1;padding:9px 6px;font-size:13.5px}
+.p-open{flex:1;min-width:0;display:flex;align-items:center;gap:10px;border:0;background:none;text-align:left;padding:0;color:inherit;cursor:pointer}
+.p-open .r-text{flex:1;min-width:0}
+.pr-meta{font-size:12.5px;color:var(--muted)}
+.cad{font-weight:700}
+.cad.warn{color:#b7791f}
+.cad.bad{color:var(--danger)}
+.more{border:1px solid var(--fline,var(--line));border-radius:14px}
+.more>summary{list-style:none;cursor:pointer;padding:12px 14px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.more>summary::-webkit-details-marker{display:none}
+.more>summary::after{content:"▸"}
+.more[open]>summary::after{content:"▾"}
+.more-in{display:flex;flex-direction:column;gap:12px;padding:0 14px 14px}
+
 /* ---- Web independiente ---- */
 html,body{margin:0}
 [hidden]{display:none!important}
@@ -547,8 +580,9 @@ const pname = (id) => (S.profiles[id]&&S.profiles[id].name) || (id===S.me?"Tú":
 /* ============ Modo prueba (fuera de claude.ai) ============
    Base de datos local mínima que imita la de claude.ai y guarda en este navegador. */
 function makeLocalDB(){
-  const KEY="la-cesta-demo"; let data={};
+  const KEY=window.__DEMO_KEY||"la-cesta-demo"; let data={};
   try{data=JSON.parse(localStorage.getItem(KEY)||"{}");}catch(e){}
+  if(!Object.keys(data).length&&window.__DEMO_SEED){ data=JSON.parse(JSON.stringify(window.__DEMO_SEED)); try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){} }
   const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch(e){}};
   const listeners=new Set();
   const notify=()=>setTimeout(()=>listeners.forEach(l=>l()),0);
@@ -574,8 +608,9 @@ function makeLocalDB(){
   window.addEventListener("storage",e=>{if(e.key===KEY){try{data=JSON.parse(e.newValue||"{}");}catch(x){}notify();}});
   return {doc,collection};
 }
-const localUser={id:async()=>"yo",can:async()=>true,profiles:async ids=>Object.fromEntries([].concat(ids).map(id=>[id,{id,name:id==="yo"?"Tú":"Familiar",avatarUrl:avatarSVG(id==="yo"?"T":"F"),isMe:id==="yo"}]))};
-function avatarSVG(t){return "data:image/svg+xml,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#e2a92b"/><text x="16" y="21" font-family="sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#1c2420">${t}</text></svg>`);}
+const DEMO_NAMES={yo:"Tú",mama:"Mamá",papa:"Papá"};
+const localUser={id:async()=>window.__demoUser||"yo",can:async()=>true,profiles:async ids=>Object.fromEntries([].concat(ids).map(id=>[id,{id,name:DEMO_NAMES[id]||"Familiar",avatarUrl:avatarSVG((DEMO_NAMES[id]||"F").charAt(0),id),isMe:id===(window.__demoUser||"yo")}]))};
+function avatarSVG(t,id){let h=40;for(const ch of String(id||t))h=(h*31+ch.charCodeAt(0))%360;return "data:image/svg+xml,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="hsl(${h},55%,74%)"/><text x="16" y="21" font-family="sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#1c2420">${t}</text></svg>`);}
 
 /* ============ Firebase ============
    Estructura en Firestore (todo lo de un espacio cuelga de él):
@@ -903,7 +938,8 @@ async function refresh(){
   // collect profiles to resolve
   let ids=[];
   if(v.name==="home") mySpaceIds().forEach(sid=>membersOf(sid).slice(0,5).forEach(m=>ids.push(m.uid)));
-  else { membersOf(v.spaceId).forEach(m=>ids.push(m.uid)); if(v.name==="list") itemsOf(v.listId).forEach(i=>{i.addedBy&&ids.push(i.addedBy); i.assignee&&ids.push(i.assignee);}); }
+  else { membersOf(v.spaceId).forEach(m=>ids.push(m.uid)); if(v.name==="list") itemsOf(v.listId).forEach(i=>{i.addedBy&&ids.push(i.addedBy); i.assignee&&ids.push(i.assignee); (i.alsoBy||[]).forEach(a=>a&&a.uid&&ids.push(a.uid));});
+    else S.pantry.forEach(p=>p.by&&ids.push(p.by)); }
   mySpaceIds().forEach(sid=>{const sh=shopperOf(S.spaces.get(sid)); if(sh) ids.push(sh.uid);});
   if(ids.length) await getProfiles(ids);
   if(t!==refreshToken) return;
@@ -1081,8 +1117,26 @@ function rowIcon(i){
   const c=findCat(i.name); const ico=i.icon||(c&&c[1]);
   return ico?`<span class="r-ico" aria-hidden="true">${esc(ico)}</span>`:`<span class="r-ico r-letter" aria-hidden="true">${esc((i.name||"?").trim().charAt(0).toUpperCase())}</span>`;
 }
+/* Quién apuntó cada producto: el primero y quien lo pidió después */
+function authorsOf(i){ const a=[]; if(i.addedBy) a.push({uid:i.addedBy,at:i.addedAt});
+  (i.alsoBy||[]).forEach(x=>{ if(x&&x.uid&&!a.some(y=>y.uid===x.uid)) a.push(x); }); return a; }
+const whoName=u=>u===S.me?"ti":pname(u);
+const joinNames=arr=>arr.length<=1?arr.join(""):arr.slice(0,-1).join(", ")+" y "+arr.at(-1);
+const avatarImgs=(a,cls)=>`<span class="stack ${cls||""}">${a.slice(0,3).map(x=>`<img referrerpolicy="no-referrer" src="${esc(S.profiles[x.uid]?.avatarUrl||"")}" alt="">`).join("")}</span>`;
+function whoLineHTML(i){ const a=authorsOf(i); if(!a.length) return "";
+  return `<span class="r-who2">${avatarImgs(a,"sm")}Apuntado por ${esc(joinNames(a.map(x=>whoName(x.uid))))}</span>`; }
+function whenTxt(t){ if(!t) return ""; const d=new Date(t), n=new Date();
+  const hm=d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+  const day=Math.round((new Date(n.getFullYear(),n.getMonth(),n.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);
+  return day===0?`hoy a las ${hm}`:day===1?`ayer a las ${hm}`:`el ${d.toLocaleDateString("es-ES",{day:"numeric",month:"short"})}`; }
+function authBoxHTML(it){ const a=authorsOf(it); if(!a.length) return "";
+  const f=a[0];
+  return `<div class="who-box">${avatarImgs(a)}<span><strong>Apuntado por ${esc(whoName(f.uid))}</strong> ${esc(whenTxt(f.at))}${a.slice(1).map(x=>`<br>También lo pidió <strong>${esc(whoName(x.uid))}</strong>${x.qty?` (${esc(qtyText(x.qty,x.unit))})`:""} ${esc(whenTxt(x.at))}`).join("")}${it.done&&it.doneBy?`<br>Comprado por <strong>${esc(whoName(it.doneBy))}</strong> ${esc(whenTxt(it.doneAt))}`:""}</span></div>`; }
+function priceCellHTML(i){ const pi=priceInfo(i); if(!pi) return "";
+  const small=pi.short?pi.short+(pi.fromBook?" · libreta":""):(pi.fromBook?"libreta":"");
+  return `<span class="r-price${pi.fromBook?" book":""}"><strong>${fmtEur(pi.total)}</strong>${small?`<small>${esc(small)}</small>`:""}</span>`; }
 function rowHTML(i){
-  const by=i.addedBy&&S.profiles[i.addedBy]?.avatarUrl;
+  const spec=i.details?specOf(i.details):(i.spec||"");
   const who=i.assignee?`<span class="r-who${i.assignee===S.me?" me":""}">Para ${esc(i.assignee===S.me?"ti":pname(i.assignee))}</span>`:"";
   return `<li class="row-item ${i.checked?"checked":""}">
     <button class="check" data-check="${esc(i.id)}" role="checkbox" aria-checked="${i.checked?"true":"false"}" aria-label="${i.checked?"Desmarcar":"Marcar"} ${esc(i.name)} como comprado">
@@ -1090,9 +1144,9 @@ function rowHTML(i){
     </button>
     <button class="r-main" data-check="${esc(i.id)}" tabindex="-1" aria-hidden="true">
       ${rowIcon(i)}
-      <span class="r-text"><span class="r-name">${esc(i.name)}</span>${i.spec?`<span class="r-spec">${esc(i.spec)}</span>`:""}${who}</span>
+      <span class="r-text"><span class="r-name">${esc(i.name)}</span>${spec?`<span class="r-spec">${esc(spec)}</span>`:""}${who}${S.storeMode?"":whoLineHTML(i)}</span>
     </button>
-    ${by&&!S.storeMode?`<img referrerpolicy="no-referrer" class="r-by" alt="" title="Añadido por ${esc(pname(i.addedBy))}" src="${esc(by)}">`:""}
+    ${priceCellHTML(i)}
     <button class="r-edit" data-edit="${esc(i.id)}" aria-label="Editar ${esc(i.name)}">${ICON.pen}</button>
   </li>`;
 }
@@ -1148,11 +1202,12 @@ function paintList(){
   const pendKeys=new Set(pend.map(i=>norm(i.name)));
   if(S.storeMode&&S.mineOnly) pend=pend.filter(i=>!i.assignee||i.assignee===S.me);
   const nChecked=pend.filter(i=>i.checked).length;
+  const cartTotal=pend.filter(i=>i.checked).reduce((a,i)=>a+(priceInfo(i)?.total||0),0);
   const recent=all.filter(i=>i.done).sort((a,b)=>(b.doneAt||0)-(a.doneAt||0)).slice(0,20);
   let html="";
   if(S.storeMode){
     const mineN=all.filter(i=>!i.done&&i.assignee===S.me).length;
-    html+=`<div class="store-bar"><span><strong>${pend.length-nChecked}</strong> por coger${nChecked?` · ${nChecked} en el carro`:""}</span>
+    html+=`<div class="store-bar"><span><strong>${pend.length-nChecked}</strong> por coger${nChecked?` · ${nChecked} en el carro`:""}${cartTotal?` · ${fmtEur(cartTotal)}`:""}</span>
       <button class="chip ${S.mineOnly?"on":""}" id="bMine" aria-pressed="${!!S.mineOnly}">Solo lo mío${mineN?` (${mineN})`:""}</button></div>`;
   } else {
     html+=runningLowHTML(l.id,pendKeys);
@@ -1167,8 +1222,11 @@ function paintList(){
     if(cart.length) html+=`<p class="catlabel">En el carro</p><ul class="rows">${cart.map(rowHTML).join("")}</ul>`;
     html+=`</div>`;
   } else {
-    const est=pend.reduce((a,i)=>a+(+(i.details&&i.details.precio)||0),0);
-    html+=`<div><p class="label">Por comprar <span class="count">${pend.length-nChecked}</span>${est?`<span class="label-est">≈ ${fmtEur(est)}</span>`:""}${nChecked?`<span class="label-note">${nChecked} en el carro</span>`:""}</p>`;
+    const pis=pend.map(i=>[i,priceInfo(i)]);
+    const est=pis.filter(([i,p])=>p&&!i.checked).reduce((a,[,p])=>a+p.total,0);
+    const miss=pis.filter(([,p])=>!p).length;
+    if(est||cartTotal) html+=`<div class="sum-card"><div><span>Por comprar</span><strong>≈ ${fmtEur(est)}</strong></div><div><span>En el carro</span><strong>${fmtEur(cartTotal)}</strong></div><div><span>Sin precio</span><strong>${miss}</strong></div></div>`;
+    html+=`<div><p class="label">Por comprar <span class="count">${pend.length-nChecked}</span>${nChecked?`<span class="label-note">${nChecked} en el carro</span>`:""}</p>`;
     let last=-1; let open=false;
     pend.forEach(i=>{const c=i.cat??10;
       if(c!==last){ if(open) html+=`</ul>`; html+=`<p class="catlabel">${esc(CATS[c]||"Otros")}</p><ul class="rows">`; open=true; last=c; }
@@ -1188,7 +1246,7 @@ function paintList(){
   dyn.querySelectorAll("[data-readd]").forEach(b=>b.onclick=()=>readdItem(b.dataset.readd));
   dyn.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>addItem(b.dataset.pick));
   const mine=$("#bMine"); if(mine) mine.onclick=()=>{S.mineOnly=!S.mineOnly;paintList();};
-  paintFinish(col,nChecked);
+  paintFinish(col,nChecked,cartTotal);
   paintSuggest();
 }
 let wakeLock=null;
@@ -1197,12 +1255,12 @@ function toggleStore(on){
   try{ if(on&&navigator.wakeLock) navigator.wakeLock.request("screen").then(w=>wakeLock=w).catch(()=>{}); else if(wakeLock){wakeLock.release().catch(()=>{});wakeLock=null;} }catch(e){}
   render(); window.scrollTo(0,0);
 }
-function paintFinish(col,n){
+function paintFinish(col,n,total){
   let bar=$("#finishBar");
   if(!n){ if(bar) bar.remove(); return; }
   if(!bar){ bar=document.createElement("div"); bar.id="finishBar"; bar.className="finish"; $("#main").appendChild(bar); }
   bar.style.setProperty("--sc",col);
-  bar.innerHTML=`<div class="finish-in"><span class="finish-txt"><strong>${n}</strong> ${n===1?"producto marcado":"productos marcados"}</span><button class="btn" id="bFinish">Finalizar compra</button></div>`;
+  bar.innerHTML=`<div class="finish-in"><span class="finish-txt"><strong>${n}</strong> en el carro${total?` · <strong>${fmtEur(total)}</strong>`:""}</span><button class="btn" id="bFinish">Finalizar compra</button></div>`;
   $("#bFinish").onclick=()=>finishShopping();
 }
 function quickPicksHTML(all){
@@ -1241,21 +1299,31 @@ async function addItem(name,target,quiet,extra){
   const cat=existing?(existing.cat??10):(c?c[2]:10);
   const lst=S.lists.get(v.listId);
   const mkDet=(old)=>{ const d=Object.assign({},old||{}); if(extra.qty){d.qty=extra.qty;d.unit=extra.unit||"unidades";} if(extra.nota) d.nota=extra.nota;
+    if(extra.details) Object.entries(extra.details).forEach(([k,val])=>{ if(val!==""&&val!=null) d[k]=val; });
     if(!d.tienda&&lst&&lst.store) d.tienda=lst.store;
-    if(d.tienda&&!d.precio){ const b=bookPrice(v.spaceId,finalName,d.tienda); if(b) d.precio=b.price; }
     return d; };
   try{
     if(existing){
       if(!existing.done){
-        if(extra.qty||extra.nota){ const d=mkDet(existing.details); await S.db.doc("items/"+existing.id).update({details:d,spec:specOf(d)}); if(!quiet) toast(`${existing.name}: actualizado`); }
-        else if(!quiet) toast(`${existing.name} ya está en la lista`);
+        const upd={}; const other=existing.addedBy&&existing.addedBy!==S.me;
+        if(extra.qty||extra.nota||extra.details){
+          const d=mkDet(existing.details);
+          // Si otra persona pide más de lo mismo, se suman las cantidades
+          const od=existing.details||{};
+          if(other&&extra.qty&&+od.qty&&(od.unit||"unidades")===(extra.unit||"unidades")) d.qty=Math.round((+od.qty+ +extra.qty)*100)/100;
+          upd.details=d; upd.spec=specOf(d);
+        }
+        if(other){ const also=(existing.alsoBy||[]).filter(a=>a&&a.uid!==S.me);
+          also.push({uid:S.me,at:Date.now(),qty:extra.qty||"",unit:extra.qty?(extra.unit||"unidades"):""}); upd.alsoBy=also; }
+        if(Object.keys(upd).length) await S.db.doc("items/"+existing.id).update(upd);
+        if(!quiet) toast(other?`${existing.name} ya lo había apuntado ${pname(existing.addedBy)}. Te apunto también.`:upd.details?`${existing.name}: actualizado`:`${existing.name} ya está en la lista`);
         return;
       }
       const d=mkDet(existing.details);
-      await S.db.doc("items/"+existing.id).update({done:false,checked:false,addedBy:S.me,addedAt:Date.now(),details:d,spec:specOf(d)});
+      await S.db.doc("items/"+existing.id).update({done:false,checked:false,addedBy:S.me,addedAt:Date.now(),alsoBy:[],details:d,spec:specOf(d)});
     } else {
       const d=mkDet(null);
-      await S.db.collection("items").add({spaceId:v.spaceId,listId:v.listId,name:finalName,icon:c?c[1]:"",cat,spec:specOf(d),details:d,done:false,checked:false,addedBy:S.me,addedAt:Date.now()});
+      await S.db.collection("items").add({spaceId:v.spaceId,listId:v.listId,name:finalName,icon:c?c[1]:"",cat,spec:specOf(d),details:d,done:false,checked:false,addedBy:S.me,addedAt:Date.now(),alsoBy:[]});
     }
   }catch(e){err(e)}
 }
@@ -1265,22 +1333,27 @@ async function toggleChecked(id){
 }
 async function readdItem(id){
   const it=S.items.get(id); if(!it) return;
-  try{ await S.db.doc("items/"+id).update({done:false,checked:false,addedBy:S.me,addedAt:Date.now()}); }catch(e){err(e)}
+  try{ await S.db.doc("items/"+id).update({done:false,checked:false,addedBy:S.me,addedAt:Date.now(),alsoBy:[]}); }catch(e){err(e)}
 }
 async function finishShopping(){
   const l=S.view.listId; const sid=S.view.spaceId; const marked=itemsOf(l).filter(i=>!i.done&&i.checked);
   if(!marked.length) return;
   const b=$("#bFinish"); if(b){b.disabled=true;b.textContent="Guardando…";}
+  const lstStore=(S.lists.get(l)||{}).store||"";
   const now=Date.now(); let ok=0; const bought=[];
-  for(const it of marked){ try{ await S.db.doc("items/"+it.id).update({done:true,checked:false,doneAt:now,doneBy:S.me}); ok++;
-    bought.push({name:it.name,icon:it.icon||"",spec:it.spec||"",cat:it.cat??10,precio:+(it.details&&it.details.precio)||0,tienda:(it.details&&it.details.tienda)||""});
-    if(it.details&&it.details.tienda&&+it.details.precio) recordPrice(sid,it.name,it.details.tienda,+it.details.precio,it.details.qty,it.details.unit); }catch(e){ err(e); } }
-  if(bought.length){ const lst=S.lists.get(l); const total=bought.reduce((a,i)=>a+i.precio,0);
-    try{ await S.db.collection("purchases").add({spaceId:sid,listId:l,listName:lst?lst.name:"",listEmoji:lst?lst.emoji||"":"",items:bought,total,by:S.me,at:now}); }catch(e){ console.warn(e); }
-    // Lo comprado pasa a la despensa como «En casa»
-    for(const i of bought){ const p=pantryOf(sid).find(x=>norm(x.name)===norm(i.name));
-      try{ if(p){ if(p.state!=="hay") await S.db.doc("pantry/"+p.id).update({state:"hay",updatedAt:now}); }
-        else await S.db.collection("pantry").add({spaceId:sid,name:i.name,icon:i.icon,cat:i.cat,state:"hay",updatedAt:now,by:S.me}); }catch(e){} }
+  for(const it of marked){ const d=it.details||{}; const pi=priceInfo(it);
+    try{ await S.db.doc("items/"+it.id).update({done:true,checked:false,doneAt:now,doneBy:S.me}); ok++;
+      bought.push({name:it.name,icon:it.icon||"",spec:it.details?specOf(d):(it.spec||""),cat:it.cat??10,precio:pi?pi.total:0,tienda:d.tienda||lstStore,d});
+      if(+d.precio) recordPrice(sid,it.name,d.tienda||lstStore||"General",+d.precio,d.qty,d.unit,d.per||defaultPer(d.unit));
+    }catch(e){ err(e); } }
+  if(bought.length){ const lst=S.lists.get(l); const total=Math.round(bought.reduce((a,i)=>a+i.precio,0)*100)/100;
+    try{ await S.db.collection("purchases").add({spaceId:sid,listId:l,listName:lst?lst.name:"",listEmoji:lst?lst.emoji||"":"",items:bought.map(({d,...x})=>x),total,by:S.me,at:now}); }catch(e){ console.warn(e); }
+    // Lo comprado pasa a la despensa como «En casa», con su marca, súper y precio
+    for(const i of bought){ const p=pantryOf(sid).find(x=>norm(x.name)===norm(i.name)); const d=i.d;
+      const keep={}; ["marca","variedad","tienda","precio","per"].forEach(k=>{ if(d[k]!==""&&d[k]!=null) keep[k]=d[k]; });
+      if(!keep.tienda&&lstStore) keep.tienda=lstStore;
+      try{ if(p) await S.db.doc("pantry/"+p.id).update({state:"hay",updatedAt:now,by:S.me,details:{...(p.details||{}),...keep},...(d.qty?{qty:d.qty,unit:d.unit||""}:{})});
+        else await S.db.collection("pantry").add({spaceId:sid,name:i.name,icon:i.icon,cat:i.cat,state:"hay",qty:d.qty||"",unit:d.unit||"",details:keep,updatedAt:now,by:S.me}); }catch(e){} }
   }
   const sp=S.spaces.get(sid); if(shopperOf(sp)&&sp.shopping.uid===S.me){ try{ await S.db.doc("spaces/"+sid).update({shopping:null}); }catch(e){} }
   if(S.storeMode){ S.storeMode=false; S.mineOnly=false; render(); }
@@ -1415,10 +1488,24 @@ function mountPantry(sp){
   };
   wireForms($("#tabFixed"));
 }
+function cadHTML(c){ if(!c) return "";
+  const t=new Date(); const today=new Date(t.getFullYear(),t.getMonth(),t.getDate());
+  const d=new Date(c+"T00:00:00"); if(isNaN(d)) return "";
+  const n=Math.round((d-today)/864e5);
+  if(n<0) return `<span class="cad bad">Caducado</span>`;
+  if(n===0) return `<span class="cad bad">Caduca hoy</span>`;
+  if(n<=7) return `<span class="cad warn">Caduca en ${n} ${n===1?"día":"días"}</span>`;
+  return `Caduca el ${esc(d.toLocaleDateString("es-ES",{day:"numeric",month:"short"}))}`; }
+function pantryMeta(p){ const d=p.details||{}; const parts=[];
+  if(p.qty) parts.push(esc(qtyText(p.qty,p.unit)));
+  if(d.tienda&&d.tienda!=="General") parts.push(esc(d.tienda));
+  if(+d.precio) parts.push(fmtEur(d.precio)+(d.per&&d.per!=="unidad"?"/"+esc(d.per):""));
+  const cad=cadHTML(p.caduca); if(cad) parts.push(cad);
+  return parts.join(" · "); }
 function paintPantryTab(sp,body,col){
   const items=pantryOf(sp.id).sort(byCat);
   if(!items.length){
-    body.innerHTML=`<div class="empty"><div style="font-size:40px">🫙</div><p class="e-big">La despensa está vacía</p><p>Apunta lo que tenéis en casa. Cuando finalices una compra, lo comprado aparecerá aquí solo. Si algo se acaba, márcalo y pásalo a la lista con un toque.</p></div>`;
+    body.innerHTML=`<div class="empty"><div style="font-size:40px">🫙</div><p class="e-big">La despensa está vacía</p><p>Apunta lo que tenéis en casa. Cuando finalices una compra, lo comprado aparecerá aquí solo. Toca cualquier producto para poner su precio, marca o caducidad.</p></div>`;
     return;
   }
   const missing=items.filter(p=>p.state!=="hay");
@@ -1426,20 +1513,102 @@ function paintPantryTab(sp,body,col){
   if(missing.length) html+=`<div class="pantry-alert"><span><strong>${missing.length}</strong> ${missing.length===1?"cosa se acaba o se ha acabado":"cosas se acaban o se han acabado"}</span><button class="btn" id="pAll">${ICON.plus}Pasar todo a la lista</button></div>`;
   [["no","Se acabó"],["poco","Queda poco"],["hay","En casa"]].forEach(([st,label])=>{
     const g=items.filter(p=>(p.state||"hay")===st); if(!g.length) return;
-    html+=`<div><p class="label">${label} <span class="count">${g.length}</span></p><ul class="rows">${g.map(p=>`
+    html+=`<div><p class="label">${label} <span class="count">${g.length}</span></p><ul class="rows">${g.map(p=>{ const meta=pantryMeta(p); return `
       <li class="pantry-row st-${st}">
-        ${rowIcon(p)}
-        <span class="r-text"><span class="r-name">${esc(p.name)}</span></span>
+        <button class="p-open" data-popen="${esc(p.id)}" aria-label="Editar ${esc(p.name)}">${rowIcon(p)}<span class="r-text"><span class="r-name">${esc(p.name)}</span>${meta?`<span class="pr-meta">${meta}</span>`:""}</span></button>
         <span class="seg" role="group" aria-label="Estado de ${esc(p.name)}">${PSTATES.map(([k,l])=>`<button data-pst="${esc(p.id)}" data-v="${k}" aria-pressed="${(p.state||"hay")===k}">${l}</button>`).join("")}</span>
         ${st!=="hay"?`<button class="mini" data-p2l="${esc(p.id)}" aria-label="Añadir ${esc(p.name)} a la lista">${ICON.plus}Lista</button>`:""}
-        <button class="r-edit" data-pdel="${esc(p.id)}" aria-label="Quitar ${esc(p.name)} de la despensa">${ICON.x}</button>
-      </li>`).join("")}</ul></div>`;
+        <button class="r-edit" data-popen="${esc(p.id)}" aria-label="Editar ${esc(p.name)}">${ICON.pen}</button>
+      </li>`;}).join("")}</ul></div>`;
   });
   body.innerHTML=html;
-  body.querySelectorAll("[data-pst]").forEach(b=>b.onclick=async()=>{try{await S.db.doc("pantry/"+b.dataset.pst).update({state:b.dataset.v,updatedAt:Date.now()});}catch(x){err(x)}});
-  body.querySelectorAll("[data-pdel]").forEach(b=>b.onclick=async()=>{try{await S.db.doc("pantry/"+b.dataset.pdel).delete();}catch(x){err(x)}});
-  body.querySelectorAll("[data-p2l]").forEach(b=>b.onclick=()=>{const p=S.pantry.get(b.dataset.p2l); pickList(sp.id,async lid=>{await addItem(p.name,{spaceId:sp.id,listId:lid},true); toast(`${p.name} añadido a ${S.lists.get(lid)?.name}`);});});
-  const all=$("#pAll"); if(all) all.onclick=()=>pickList(sp.id,async lid=>{for(const p of missing) await addItem(p.name,{spaceId:sp.id,listId:lid},true); toast(`${missing.length} productos añadidos a ${S.lists.get(lid)?.name}`);});
+  body.querySelectorAll("[data-pst]").forEach(b=>b.onclick=async()=>{try{await S.db.doc("pantry/"+b.dataset.pst).update({state:b.dataset.v,updatedAt:Date.now(),by:S.me});}catch(x){err(x)}});
+  body.querySelectorAll("[data-popen]").forEach(b=>b.onclick=()=>openPantry(b.dataset.popen));
+  const toListExtra=p=>{ const d=p.details||{}; return {details:{marca:d.marca,variedad:d.variedad,tienda:d.tienda&&d.tienda!=="General"?d.tienda:"",precio:d.precio,per:d.per}}; };
+  body.querySelectorAll("[data-p2l]").forEach(b=>b.onclick=()=>{const p=S.pantry.get(b.dataset.p2l); pickList(sp.id,async lid=>{await addItem(p.name,{spaceId:sp.id,listId:lid},true,toListExtra(p)); toast(`${p.name} añadido a ${S.lists.get(lid)?.name}`);});});
+  const all=$("#pAll"); if(all) all.onclick=()=>pickList(sp.id,async lid=>{for(const p of missing) await addItem(p.name,{spaceId:sp.id,listId:lid},true,toListExtra(p)); toast(`${missing.length} productos añadidos a ${S.lists.get(lid)?.name}`);});
+}
+/* Ficha de un producto de la despensa */
+function openPantry(id){
+  const p=S.pantry.get(id); if(!p) return; const sp=S.spaces.get(p.spaceId); const col=colorVar(sp.color);
+  const base=catalogName(p.name); const cat=p.cat??10; const food=isFood(cat);
+  const d=Object.assign({marca:"",variedad:"",tienda:"",precio:"",per:"",nota:"",photo:""},p.details||{});
+  if(d.tienda==="General") d.tienda="";
+  let state=p.state||"hay";
+  const unit0=p.unit||DEFAULT_UNIT[base]||(UNITS[cat]||UNITS[10])[0];
+  const units=[...new Set([...(UNITS[cat]||UNITS[10]),unit0])];
+  if(!d.per) d.per=defaultPer(unit0);
+  const variants=VARIANTS[base];
+  const nu=d.nutr||(NUTR[base]?{kcal:NUTR[base][0],p:NUTR[base][1],c:NUTR[base][2],f:NUTR[base][3]}:{kcal:"",p:"",c:"",f:""});
+  const stores=[...new Set([...storesOf(sp),d.tienda].filter(Boolean))];
+  sheet(col,`
+    <div class="item-head"><span class="item-ico">${esc(p.icon||(findCat(p.name)||[])[1]||"🫙")}</span>
+      <div><h2>${esc(p.name)}</h2><p>Despensa${p.updatedAt?` · actualizado ${esc(agoTxt(p.updatedAt))}${p.by?" por "+esc(whoName(p.by)):""}`:""}</p></div></div>
+    <form id="fPan" class="item-form">
+      <section class="fs"><p class="label">En casa</p>
+        <span class="seg full" id="pSt" role="group" aria-label="Estado">${PSTATES.map(([k,l])=>`<button type="button" data-v="${k}" aria-pressed="${state===k}">${l}</button>`).join("")}</span>
+        <div class="grid2">
+          <div class="field"><label for="pQty">Cuánto hay</label><input id="pQty" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.qty||"")}" placeholder="Ej.: 1"></div>
+          <div class="field"><label for="pUnit">Unidad</label><select id="pUnit">${units.map(u=>`<option ${u===unit0?"selected":""}>${esc(u)}</option>`).join("")}</select></div>
+          <div class="field"><label for="pCad">Caduca</label><input id="pCad" type="date" value="${esc(p.caduca||"")}"></div>
+          <div class="field"><label for="pBrand">Marca preferida</label><input id="pBrand" maxlength="40" value="${esc(d.marca)}" placeholder="Cualquiera"></div>
+        </div>
+      </section>
+      <section class="fs"><p class="label">Para la próxima compra</p>
+        <div class="grid2">
+          <div class="field"><label for="pStore">Supermercado</label><select id="pStore"><option value="">Cualquiera</option>${stores.map(st=>`<option ${st===d.tienda?"selected":""}>${esc(st)}</option>`).join("")}</select></div>
+          <div class="field"><label for="pPrice">Precio (€)</label><input id="pPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(d.precio)}" placeholder="Ej.: 2,45"></div>
+          <div class="field"><label for="pPer">Precio por</label>${perSelect("pPer",d.per)}</div>
+          ${variants?`<div class="field"><label for="pVar">Variedad</label><select id="pVar"><option value="">Indiferente</option>${variants.map(o=>`<option ${o===d.variedad?"selected":""}>${esc(o)}</option>`).join("")}</select></div>`
+                    :`<div class="field"><label for="pVar">Tipo o variedad</label><input id="pVar" maxlength="40" value="${esc(d.variedad)}" placeholder="Opcional"></div>`}
+        </div>
+        <div class="book-note" id="pBook"></div>
+      </section>
+      <details class="more"><summary>Información nutricional, foto y notas</summary><div class="more-in">
+        ${food?`<p class="label" style="margin:0">Por ${per100(base,cat)}</p><div class="grid4">
+          <div class="field"><label for="pnK">Calorías</label><input id="pnK" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.kcal)}"><span class="unit">kcal</span></div>
+          <div class="field"><label for="pnP">Proteínas</label><input id="pnP" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.p)}"><span class="unit">g</span></div>
+          <div class="field"><label for="pnC">Hidratos</label><input id="pnC" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.c)}"><span class="unit">g</span></div>
+          <div class="field"><label for="pnF">Grasas</label><input id="pnF" type="number" inputmode="decimal" min="0" step="any" value="${esc(nu.f)}"><span class="unit">g</span></div></div>`:""}
+        <div class="field"><label for="pNote">Notas</label><input id="pNote" maxlength="80" value="${esc(d.nota)}" placeholder="Ej.: una vez abierto, a la nevera"></div>
+        <div class="photo-box">
+          <div class="photo-prev" id="ppPrev">${d.photo?`<img referrerpolicy="no-referrer" src="${esc(d.photo)}" alt="">`:`<span>Sin foto</span>`}</div>
+          <div class="photo-actions"><label class="btn quiet" for="ppFile">${d.photo?"Cambiar foto":"Añadir foto"}</label>
+            <input id="ppFile" type="file" accept="image/*" capture="environment" class="sr">
+            <button type="button" class="btn quiet" id="ppDel" ${d.photo?"":"hidden"}>Quitar foto</button></div>
+        </div>
+      </div></details>
+      <div class="row"><button class="btn" type="submit">Guardar</button><button class="btn quiet" type="button" id="pToList">${ICON.plus}Añadir a la lista</button></div>
+      <button type="button" class="linkish" id="pDel" style="color:var(--danger);align-self:flex-start">Quitar de la despensa</button>
+    </form>`,el=>{
+      const q=s=>el.querySelector(s); const num=s=>{const v=q(s)?.value;return v===""||v==null?"":Math.max(0,+v);};
+      el.querySelectorAll("#pSt [data-v]").forEach(b=>b.onclick=()=>{ state=b.dataset.v; el.querySelectorAll("#pSt [data-v]").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); });
+      let autoPrice=null, photo=d.photo||"";
+      const book=()=>{ const st=q("#pStore").value; const pv=+q("#pPrice").value; const per=q("#pPer").value;
+        const others=pricesFor(sp.id,p.name).filter(x=>x.store!==(st||"General"));
+        let h=pv>0?`Al guardar, <strong>${fmtEur(pv)}${per!=="unidad"?" / "+esc(per):""} en ${esc(st||"cualquier súper")}</strong> se apunta en la libreta de precios. Se usará al añadir este producto a la lista y en las estimaciones.`
+                  :`Pon el precio y se guardará en la libreta para las próximas compras y las estimaciones.`;
+        if(others.length) h+=`<br>En otros súper: ${others.map(x=>`${esc(x.store==="General"?"sin súper":x.store)} ${fmtEur(x.price)}`).join(" · ")}`;
+        q("#pBook").innerHTML=`<span aria-hidden="true">🏷️</span><span>${h}</span>`; };
+      const onStore=()=>{ const b=bookPrice(sp.id,p.name,q("#pStore").value||"General"); const pi=q("#pPrice");
+        if(b&&(!pi.value||+pi.value===autoPrice)){ pi.value=b.price; autoPrice=b.price; if(b.per) q("#pPer").value=b.per; } book(); };
+      q("#pStore").addEventListener("change",onStore); ["#pPrice","#pPer"].forEach(x=>q(x).addEventListener("input",book));
+      if(!+d.precio) onStore(); else book();
+      q("#ppFile").onchange=async ev=>{const f=ev.target.files&&ev.target.files[0]; if(!f) return;
+        try{ photo=await compressImage(f); q("#ppPrev").innerHTML=`<img referrerpolicy="no-referrer" src="${photo}" alt="">`; q("#ppDel").hidden=false; }catch(x){ toast("No se ha podido leer la imagen. Prueba con otra foto."); } };
+      q("#ppDel").onclick=()=>{ photo=""; q("#ppPrev").innerHTML="<span>Sin foto</span>"; q("#ppDel").hidden=true; };
+      const save=async()=>{
+        const det={...(p.details||{}),marca:q("#pBrand").value.trim(),variedad:q("#pVar").value.trim(),tienda:q("#pStore").value||"",precio:num("#pPrice"),per:q("#pPer").value,nota:q("#pNote").value.trim()};
+        if(photo) det.photo=photo; else delete det.photo;
+        if(food) det.nutr={kcal:num("#pnK"),p:num("#pnP"),c:num("#pnC"),f:num("#pnF")};
+        await S.db.doc("pantry/"+id).update({state,qty:num("#pQty"),unit:q("#pUnit").value,caduca:q("#pCad").value||"",details:det,updatedAt:Date.now(),by:S.me});
+        if(+det.precio) await recordPrice(sp.id,p.name,det.tienda||"General",det.precio,"","",det.per);
+        return det; };
+      q("#fPan").onsubmit=async e=>{ e.preventDefault(); try{ const det=await save(); closeSheet(); toast(+det.precio?"Guardado · precio apuntado en la libreta":"Guardado"); }catch(x){ err(x); } };
+      q("#pToList").onclick=async()=>{ try{ const det=await save(); closeSheet();
+        pickList(sp.id,async lid=>{ await addItem(p.name,{spaceId:sp.id,listId:lid},true,{details:{marca:det.marca,variedad:det.variedad,tienda:det.tienda,precio:det.precio,per:det.per}}); toast(`${p.name} añadido a ${S.lists.get(lid)?.name}`); }); }catch(x){ err(x); } };
+      q("#pDel").onclick=()=>confirmSheet(col,`¿Quitar «${p.name}» de la despensa?`,"Se borra de la despensa. Su precio sigue guardado en la libreta.","Quitar",async()=>{ await S.db.doc("pantry/"+id).delete(); });
+    });
 }
 function pickList(sid,fn){
   const ls=listsOf(sid);
@@ -1589,23 +1758,53 @@ const priceKey=(sid,name,store)=>`${sid}__${slug(catalogName(name))}__${slug(sto
 const pricesFor=(sid,name)=>[...S.prices.values()].filter(p=>p.spaceId===sid&&norm(p.product)===norm(catalogName(name))).sort((a,b)=>a.price-b.price);
 const bookPrice=(sid,name,store)=>store?S.prices.get(priceKey(sid,name,store))||null:null;
 const agoTxt=t=>{const d=Math.floor((Date.now()-t)/864e5); return d<=0?"hoy":d===1?"ayer":d<31?`hace ${d} días`:d<365?`hace ${Math.round(d/30)} ${Math.round(d/30)===1?"mes":"meses"}`:"hace más de un año";};
-async function recordPrice(sid,name,store,price,qty,unit){
-  price=+price; if(!store||!(price>0)) return;
+/* Precio por unidad, kg, 100 g, litro… y cálculo del total de cada producto */
+const PER_OPTS=[["unidad","unidad"],["kg","kg"],["100 g","100 g"],["L","litro"],["paquete","paquete"],["botella","botella"],["lata","lata"],["pack","pack"],["docena","docena"]];
+const WGT={g:1,kg:1000}, VOL={ml:1,L:1000};
+function defaultPer(unit){ return unit in WGT?"kg":unit in VOL?"L":"unidad"; }
+function perSelect(id,sel){ return `<select id="${id}">${PER_OPTS.map(([v,l])=>`<option value="${v}" ${v===sel?"selected":""}>${l}</option>`).join("")}</select>`; }
+function lineCalc(price,per,qty,unit){
+  let mult=1, sub="", short=""; qty=+qty||0;
+  if(qty){
+    if(per==="kg"&&unit in WGT){ mult=qty*WGT[unit]/1000; sub=`${qtyText(qty,unit)} × ${fmtEur(price)}/kg`; }
+    else if(per==="100 g"&&unit in WGT){ mult=qty*WGT[unit]/100; sub=`${qtyText(qty,unit)} × ${fmtEur(price)}/100 g`; }
+    else if(per==="L"&&unit in VOL){ mult=qty*VOL[unit]/1000; sub=`${qtyText(qty,unit)} × ${fmtEur(price)}/L`; }
+    else if(!(unit in WGT)&&!(unit in VOL)&&(per==="unidad"||unit===per||unitFor(1,unit)===per)){ mult=qty; if(qty!==1) sub=`${fmtN(qty,2)} × ${fmtEur(price)}`; }
+  }
+  if(["kg","100 g","L"].includes(per)) short=`${fmtEur(price)}/${per}`;
+  else if(mult!==1) short=sub;
+  if(!sub) sub=short;
+  return {total:Math.round(price*mult*100)/100, sub, short};
+}
+/* Precio de un producto de la lista: el suyo o, si no tiene, el de la libreta */
+function priceInfo(i){
+  const d=i.details||{}; const lst=S.lists.get(i.listId)||{};
+  let price=+d.precio||0, per=d.per, fromBook=false;
+  if(!price){ const st=d.tienda||lst.store||"";
+    const b=bookPrice(i.spaceId,i.name,st)||(lst.store&&lst.store!==st?bookPrice(i.spaceId,i.name,lst.store):null)||bookPrice(i.spaceId,i.name,"General");
+    if(b){ price=+b.price; per=b.per||defaultPer(b.unit); fromBook=true; } }
+  if(!(price>0)) return null;
+  per=per||defaultPer(d.unit);
+  return {...lineCalc(price,per,d.qty,d.unit),price,per,fromBook};
+}
+const storeLabel=s=>s==="General"?"Sin súper":s;
+async function recordPrice(sid,name,store,price,qty,unit,per){
+  price=+price; if(!(price>0)) return; store=store||"General";
   const id=priceKey(sid,name,store); const ex=S.prices.get(id);
   const last=ex&&ex.history&&ex.history.at(-1);
   const hist=((ex&&ex.history)||[]).concat(last&&last.price===price&&Date.now()-last.at<864e5?[]:[{price,at:Date.now()}]).slice(-8);
-  try{ await S.db.doc("prices/"+id).set({spaceId:sid,product:catalogName(name),store,price,qty:qty||"",unit:unit||"",at:Date.now(),by:S.me,history:hist}); }catch(e){console.warn(e)}
+  try{ await S.db.doc("prices/"+id).set({spaceId:sid,product:catalogName(name),store,price,qty:qty||"",unit:unit||"",per:per||defaultPer(unit),at:Date.now(),by:S.me,history:hist}); }catch(e){console.warn(e)}
 }
 function compareHTML(sp,pend){
   if(!pend.length) return "";
-  const rows=storesOf(sp).map(st=>{let sum=0,n=0; pend.forEach(i=>{const b=bookPrice(sp.id,i.name,st); if(b){sum+=b.price;n++;}}); return {st,sum,n};}).filter(r=>r.n>0);
+  const rows=storesOf(sp).map(st=>{let sum=0,n=0; pend.forEach(i=>{const b=bookPrice(sp.id,i.name,st); if(b){const d=i.details||{}; sum+=lineCalc(+b.price,b.per||defaultPer(b.unit),d.qty,d.unit).total;n++;}}); return {st,sum,n};}).filter(r=>r.n>0);
   if(!rows.length) return "";
   const maxN=Math.max(...rows.map(r=>r.n)); const full=rows.filter(r=>r.n===maxN);
   const best=full.length>1?full.reduce((a,b)=>b.sum<a.sum?b:a):null;
   rows.sort((a,b)=>b.n-a.n||a.sum-b.sum);
   // Ahorro producto a producto
   const tips=[]; let save=0;
-  pend.forEach(i=>{ const ps=pricesFor(sp.id,i.name); if(ps.length<2) return;
+  pend.forEach(i=>{ const ps=pricesFor(sp.id,i.name).filter(x=>x.store!=="General"); if(ps.length<2) return;
     const mine=(i.details&&i.details.tienda)||(S.lists.get(i.listId)||{}).store; const cur=ps.find(x=>x.store===mine); const cheap=ps[0];
     if(cur&&cheap.store!==cur.store&&cheap.price<cur.price){ const dif=cur.price-cheap.price; save+=dif; tips.push({name:i.name,store:cheap.store,dif}); } });
   tips.sort((a,b)=>b.dif-a.dif);
@@ -1638,8 +1837,8 @@ function paintPricesTab(sp,body,col){
   body.innerHTML=`<p class="label">${names.length} ${names.length===1?"producto":"productos"} con precio</p><ul class="rows price-list">${names.map(k=>{
     const ps=groups.get(k).sort((a,b)=>a.price-b.price); const c=findCat(ps[0].product);
     return `<li class="price-row">${rowIcon({name:ps[0].product,icon:c&&c[1]})}<div class="pr-body"><span class="r-name">${esc(ps[0].product)}</span>
-      <div class="pr-stores">${ps.map((p,idx)=>`<button class="pr-chip${idx===0&&ps.length>1?" best":""}" data-prid="${esc(p.id)}"><span>${esc(p.store)}</span><strong>${fmtEur(p.price)}</strong>${p.qty?`<em>${esc(qtyText(p.qty,p.unit))}</em>`:""}</button>`).join("")}</div>
-      <span class="pr-when">Actualizado ${esc(agoTxt(Math.max(...ps.map(p=>p.at||0))))}</span></div></li>`;}).join("")}</ul>`;
+      <div class="pr-stores">${ps.map((p,idx)=>`<button class="pr-chip${idx===0&&ps.length>1?" best":""}" data-prid="${esc(p.id)}"><span>${esc(storeLabel(p.store))}</span><strong>${fmtEur(p.price)}</strong>${p.per&&p.per!=="unidad"?`<em>/${esc(p.per)}</em>`:p.qty&&!p.per?`<em>${esc(qtyText(p.qty,p.unit))}</em>`:""}</button>`).join("")}</div>
+      ${(()=>{const last=ps.reduce((a,x)=>(x.at||0)>(a.at||0)?x:a,ps[0]); return `<span class="pr-when">${esc(storeLabel(last.store))} actualizado ${esc(agoTxt(last.at||0))}${last.by?" por "+esc(whoName(last.by)):""}</span>`;})()}</div></li>`;}).join("")}</ul>`;
   body.querySelectorAll("[data-prid]").forEach(b=>b.onclick=()=>openPriceEdit(sp.id,b.dataset.prid));
 }
 function openPriceEdit(sid,id,preset){
@@ -1647,14 +1846,13 @@ function openPriceEdit(sid,id,preset){
   const stores=[...new Set([...storesOf(sp),pr.store].filter(Boolean))];
   const hist=(p&&p.history)||[];
   sheet(colorVar(sp.color),`<h2>${p?esc(p.product):"Añadir precio"}</h2>
-    ${p?`<p>${esc(p.store)} · actualizado ${esc(agoTxt(p.at))}${p.by?" por "+esc(pname(p.by)):""}</p>`:"<p>Guarda lo que cuesta un producto en un supermercado.</p>"}
+    ${p?`<p>${esc(storeLabel(p.store))} · actualizado ${esc(agoTxt(p.at))}${p.by?" por "+esc(pname(p.by)):""}</p>`:"<p>Guarda lo que cuesta un producto en un supermercado.</p>"}
     <form id="fPrice" class="item-form">
       <div class="grid2">
         <div class="field" style="grid-column:1/-1"><label for="pfName">Producto</label><input id="pfName" maxlength="60" value="${esc(pr.product||"")}" placeholder="Ej.: Huevos" list="catList"><datalist id="catList">${CATALOG.map(c=>`<option value="${esc(c[0])}">`).join("")}</datalist></div>
-        <div class="field"><label for="pfStore">Supermercado</label><select id="pfStore">${stores.map(s=>`<option ${s===pr.store?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+        <div class="field"><label for="pfStore">Supermercado</label><select id="pfStore">${stores.filter(x=>x!=="General").map(s=>`<option ${s===pr.store?"selected":""}>${esc(s)}</option>`).join("")}<option value="General" ${pr.store==="General"?"selected":""}>Sin súper concreto</option></select></div>
         <div class="field"><label for="pfPrice">Precio (€)</label><input id="pfPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(pr.price||"")}" placeholder="Ej.: 2,45"></div>
-        <div class="field"><label for="pfQty">Por (cantidad)</label><input id="pfQty" type="number" inputmode="decimal" min="0" step="any" value="${esc(pr.qty||"")}" placeholder="Ej.: 1"></div>
-        <div class="field"><label for="pfUnit">Unidad</label><input id="pfUnit" maxlength="20" value="${esc(pr.unit||"")}" placeholder="Ej.: docena, kg, L"></div>
+        <div class="field"><label for="pfPer">Precio por</label>${perSelect("pfPer",pr.per||defaultPer(pr.unit))}</div>
       </div>
       ${hist.length>1?`<div><p class="label">Evolución del precio</p><ul class="pr-hist">${hist.slice().reverse().map((h,k,arr)=>{const prev=arr[k+1]; const dif=prev?h.price-prev.price:0;
         return `<li><span>${esc(new Date(h.at).toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"}))}</span><strong>${fmtEur(h.price)}</strong>${dif?`<em class="${dif>0?"up":"down"}">${dif>0?"▲":"▼"} ${fmtEur(Math.abs(dif))}</em>`:"<em></em>"}</li>`;}).join("")}</ul></div>`:""}
@@ -1666,7 +1864,7 @@ function openPriceEdit(sid,id,preset){
         if(!name||!(price>0)){toast("Escribe el producto y un precio mayor que 0");return;}
         const newId=priceKey(sid,name,store);
         if(p&&p.id!==newId){ try{await S.db.doc("prices/"+p.id).delete();}catch(x){} }
-        await recordPrice(sid,name,store,price,+q("#pfQty").value||"",q("#pfUnit").value.trim());
+        await recordPrice(sid,name,store,price,"","",q("#pfPer").value);
         closeSheet(); toast("Precio guardado");
       };
       const d=q("#pfDel"); if(d) d.onclick=async()=>{try{await S.db.doc("prices/"+p.id).delete();closeSheet();toast("Precio borrado");}catch(x){err(x)}};
@@ -1911,7 +2109,6 @@ function specOf(d){
   if(d.variedad) parts.push(d.variedad);
   if(d.marca) parts.push(d.marca);
   if(d.tienda) parts.push(d.tienda);
-  if(d.precio) parts.push("≈ "+fmtEur(d.precio));
   if(d.nota) parts.push(d.nota);
   return parts.join(" · ").slice(0,120);
 }
@@ -1930,9 +2127,11 @@ function openItem(id){
     if(f.o) return `<div class="field"><label for="x_${f.k}">${esc(f.l)}</label><select id="x_${f.k}">${f.o.map(o=>`<option ${o===v?"selected":""}>${esc(o)}</option>`).join("")}</select></div>`;
     return `<div class="field"><label for="x_${f.k}">${esc(f.l)}</label><input id="x_${f.k}" ${f.n?'type="number" inputmode="numeric" min="0"':""} maxlength="40" value="${esc(v)}" placeholder="${esc(f.t||"")}"></div>`;};
   const food=isFood(cat); const p100=per100(base,cat);
+  const bookPi=(()=>{ const x=priceInfo(it); return x&&x.fromBook?x:null; })();
   sheet(col,`
     <div class="item-head"><span class="item-ico">${esc(it.icon||(CAT_BY.get(norm(it.name))||[])[1]||"🛒")}</span>
-      <div><h2>${esc(it.name)}</h2><p>${esc(CATS[cat]||"Otros")} · ${it.done?"comprado":"añadido"} por ${esc(pname(it.done?it.doneBy:it.addedBy))}${when&&!it.done?" el "+esc(when):""}</p></div></div>
+      <div><h2>${esc(it.name)}</h2><p>${esc(CATS[cat]||"Otros")}</p></div></div>
+    ${authBoxHTML(it)}
     <form id="fItem" class="item-form">
       <section class="fs"><p class="label">Cantidad</p>
         <div class="grid2">
@@ -1947,7 +2146,8 @@ function openItem(id){
           <div class="field"><label for="iBrand">Marca preferida</label><input id="iBrand" maxlength="40" value="${esc(d.marca)}" placeholder="Cualquiera"></div>
           ${fields.map(fieldHTML).join("")}
           <div class="field"><label for="iStore">Supermercado</label><select id="iStore"><option value="">Indiferente</option>${[...new Set([...storesOf(sp),d.tienda].filter(Boolean))].map(st=>`<option ${st===d.tienda?"selected":""}>${esc(st)}</option>`).join("")}</select></div>
-          <div class="field"><label for="iPrice">Precio (€)</label><input id="iPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(d.precio)}" placeholder="Ej.: 3,50"></div>
+          <div class="field"><label for="iPrice">Precio (€)</label><input id="iPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(d.precio)}" placeholder="${bookPi?esc("Libreta: "+fmtEur(bookPi.price)):"Ej.: 3,50"}"></div>
+          <div class="field"><label for="iPer">Precio por</label>${perSelect("iPer",d.per||bookPi?.per||defaultPer(d.unit))}</div>
           <div class="price-hint" id="pHint"></div>
         </div>
       </section>
@@ -1998,6 +2198,10 @@ function openItem(id){
       const hint=()=>{ const st=q("#iStore").value; const ps=pricesFor(sp.id,it.name); const box=q("#pHint");
         const cur=ps.find(x=>x.store===st);
         let h="";
+        const pv=+q("#iPrice").value||(bookPi?bookPi.price:0);
+        if(pv){ const lc=lineCalc(pv,q("#iPer").value,+q("#iQty").value||0,q("#iUnit").value);
+          h+=`<p><strong>En la lista: ${fmtEur(lc.total)}</strong>${lc.sub?" · "+esc(lc.sub):""}${!+q("#iPrice").value?" (precio de la libreta)":""}</p>`;
+          if(+q("#iPrice").value) h+=`<p>Al guardar se apunta en la libreta de precios${st?" de "+esc(st):" como precio general"}.</p>`; }
         if(cur) h+=`<p><strong>Último precio en ${esc(st)}:</strong> ${fmtEur(cur.price)}${cur.qty?` por ${esc(qtyText(cur.qty,cur.unit))}`:""} · ${esc(agoTxt(cur.at))}</p>`;
         else if(st) h+=`<p>Aún no hay precio guardado en ${esc(st)}. Si lo pones, se recordará para la próxima vez.</p>`;
         if(ps.length>1||(ps.length===1&&!cur)) h+=`<div class="pr-stores">${ps.map((x,k)=>`<button type="button" class="pr-chip${k===0&&ps.length>1?" best":""}" data-usest="${esc(x.store)}"><span>${esc(x.store)}</span><strong>${fmtEur(x.price)}</strong></button>`).join("")}</div>`;
@@ -2005,9 +2209,10 @@ function openItem(id){
         box.querySelectorAll("[data-usest]").forEach(b=>b.onclick=()=>{q("#iStore").value=b.dataset.usest; onStore();});
       };
       const onStore=()=>{ const b=bookPrice(sp.id,it.name,q("#iStore").value); const pi=q("#iPrice");
-        if(b&&(!pi.value||+pi.value===autoPrice)){ pi.value=b.price; autoPrice=b.price; }
+        if(b&&(!pi.value||+pi.value===autoPrice)){ pi.value=b.price; autoPrice=b.price; if(b.per) q("#iPer").value=b.per; }
         hint(); upd(); };
       q("#iStore").addEventListener("change",onStore); hint();
+      ["#iPrice","#iPer","#iQty","#iUnit"].forEach(x=>q(x).addEventListener("input",hint));
       q("#phFile").onchange=async ev=>{const f=ev.target.files&&ev.target.files[0]; if(!f) return;
         try{ photo=await compressImage(f); q("#phPrev").innerHTML=`<img referrerpolicy="no-referrer" src="${photo}" alt="">`; q("#phDel").hidden=false; q('label[for="phFile"]').textContent="Cambiar foto"; }
         catch(x){ toast("No se ha podido leer la imagen. Prueba con otra foto."); } };
@@ -2017,9 +2222,9 @@ function openItem(id){
         fields.forEach(f=>{const v=q("#x_"+f.k).value.trim(); if(v&&v!=="Indiferente"&&v!=="No hace falta") det[f.k]=f.n?Math.max(0,+v):v;});
         if(food) det.nutr={kcal:num("#nK"),p:num("#nP"),c:num("#nC"),f:num("#nF")};
         if(photo) det.photo=photo;
-        det.tienda=q("#iStore").value||"";
+        det.tienda=q("#iStore").value||""; det.per=q("#iPer").value;
         const n=q("#iName").value.trim()||it.name;
-        try{const {id:_omit,...rest}=S.items.get(id)||it; await S.db.doc("items/"+id).set({...rest,name:n,cat:+q("#iCat").value,details:det,spec:specOf(det),assignee:q("#iWho").value||null});if(det.tienda&&det.precio) recordPrice(sp.id,n,det.tienda,det.precio,det.qty,det.unit); closeSheet();toast("Guardado");}catch(x){err(x)}};
+        try{const {id:_omit,...rest}=S.items.get(id)||it; await S.db.doc("items/"+id).set({...rest,name:n,cat:+q("#iCat").value,details:det,spec:specOf(det),assignee:q("#iWho").value||null});if(+det.precio) recordPrice(sp.id,n,det.tienda||(S.lists.get(it.listId)||{}).store||"General",det.precio,det.qty,det.unit,det.per); closeSheet();toast("Guardado");}catch(x){err(x)}};
       q("#iDel").onclick=async()=>{try{await S.db.doc("items/"+id).delete();closeSheet();}catch(x){err(x)}};
     });
 }
