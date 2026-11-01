@@ -1559,6 +1559,7 @@ function openPantry(id){
     <div class="item-head"><span class="item-ico">${esc(p.icon||(findCat(p.name)||[])[1]||"🫙")}</span>
       <div><h2>${esc(p.name)}</h2><p>Despensa${p.updatedAt?` · actualizado ${esc(agoTxt(p.updatedAt))}${p.by?" por "+esc(whoName(p.by)):""}`:""}</p></div></div>
     <form id="fPan" class="item-form">
+      <div class="field"><label for="pName">Nombre</label><input id="pName" maxlength="60" value="${esc(p.name)}" autocomplete="off"></div>
       <section class="fs"><p class="label">En casa</p>
         <span class="seg full" id="pSt" role="group" aria-label="Estado">${PSTATES.map(([k,l])=>`<button type="button" data-v="${k}" aria-pressed="${state===k}">${l}</button>`).join("")}</span>
         <div class="grid2">
@@ -1612,17 +1613,26 @@ function openPantry(id){
       q("#ppFile").onchange=async ev=>{const f=ev.target.files&&ev.target.files[0]; if(!f) return;
         try{ photo=await compressImage(f); q("#ppPrev").innerHTML=`<img referrerpolicy="no-referrer" src="${photo}" alt="">`; q("#ppDel").hidden=false; }catch(x){ toast("No se ha podido leer la imagen. Prueba con otra foto."); } };
       q("#ppDel").onclick=()=>{ photo=""; q("#ppPrev").innerHTML="<span>Sin foto</span>"; q("#ppDel").hidden=true; };
+      q("#pName").addEventListener("input",()=>{ const h=el.querySelector(".item-head h2"); if(h) h.textContent=q("#pName").value.trim()||p.name; });
+      let pname2=p.name;
       const save=async()=>{
+        // Nombre nuevo: si es un producto conocido, coge su icono y su sección
+        const raw=q("#pName").value.trim()||p.name; const c=findCat(raw); const name=c?c[0]:prettyName(raw);
+        const renamed=norm(name)!==norm(p.name);
+        if(renamed&&pantryOf(sp.id).some(x=>x.id!==id&&norm(x.name)===norm(name))){ const e=new Error("dup"); e.userMsg=`Ya hay «${name}» en la despensa. Usa otro nombre o edita ese producto.`; throw e; }
+        pname2=name;
         const det={...(p.details||{}),marca:q("#pBrand").value.trim(),variedad:q("#pVar").value.trim(),tienda:q("#pStore").value||"",precio:num("#pPrice"),per:q("#pPer").value,nota:q("#pNote").value.trim()};
         if(photo) det.photo=photo; else delete det.photo;
         if(food) det.nutr={kcal:num("#pnK"),p:num("#pnP"),c:num("#pnC"),f:num("#pnF")};
-        await S.db.doc("pantry/"+id).update({state,qty:num("#pQty"),unit:q("#pUnit").value,caduca:q("#pCad").value||"",details:det,updatedAt:Date.now(),by:S.me});
-        if(+det.precio){ const prev=bookPrice(sp.id,p.name,det.tienda||"General");
-          if(!prev||+prev.price!==+det.precio||(prev.per||"")!==det.per) await recordPrice(sp.id,p.name,det.tienda||"General",det.precio,"","",det.per); }
+        const upd={state,qty:num("#pQty"),unit:q("#pUnit").value,caduca:q("#pCad").value||"",details:det,updatedAt:Date.now(),by:S.me};
+        if(renamed){ upd.name=name; if(c){ upd.icon=c[1]; upd.cat=c[2]; } }
+        await S.db.doc("pantry/"+id).update(upd);
+        if(+det.precio){ const prev=bookPrice(sp.id,name,det.tienda||"General");
+          if(!prev||+prev.price!==+det.precio||(prev.per||"")!==det.per) await recordPrice(sp.id,name,det.tienda||"General",det.precio,"","",det.per); }
         return det; };
-      q("#fPan").onsubmit=async e=>{ e.preventDefault(); try{ const det=await save(); closeSheet(); toast(+det.precio?"Guardado · precio apuntado en la libreta":"Guardado"); }catch(x){ err(x); } };
+      q("#fPan").onsubmit=async e=>{ e.preventDefault(); try{ const det=await save(); closeSheet(); toast(+det.precio?"Guardado · precio apuntado en la libreta":"Guardado"); }catch(x){ if(x&&x.userMsg) toast(x.userMsg); else err(x); } };
       q("#pToList").onclick=async()=>{ try{ const det=await save(); closeSheet();
-        pickList(sp.id,async lid=>{ await addItem(p.name,{spaceId:sp.id,listId:lid},true,{details:{marca:det.marca,variedad:det.variedad,tienda:det.tienda,precio:det.precio,per:det.per}}); toast(`${p.name} añadido a ${S.lists.get(lid)?.name}`); }); }catch(x){ err(x); } };
+        pickList(sp.id,async lid=>{ await addItem(pname2,{spaceId:sp.id,listId:lid},true,{details:{marca:det.marca,variedad:det.variedad,tienda:det.tienda,precio:det.precio,per:det.per}}); toast(`${pname2} añadido a ${S.lists.get(lid)?.name}`); }); }catch(x){ if(x&&x.userMsg) toast(x.userMsg); else err(x); } };
       q("#pDel").onclick=()=>confirmSheet(col,`¿Quitar «${p.name}» de la despensa?`,"Se borra de la despensa. Su precio sigue guardado en la libreta.","Quitar",async()=>{ await S.db.doc("pantry/"+id).delete(); });
     });
 }

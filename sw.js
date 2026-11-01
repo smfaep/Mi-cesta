@@ -1,6 +1,6 @@
 /* Service worker de La Cesta Familiar: permite abrir la app sin conexión.
    Sube el número de VERSION cada vez que cambies archivos para que los móviles se actualicen. */
-const VERSION = "la-cesta-v3";
+const VERSION = "la-cesta-v4";
 const SHELL = ["./", "index.html", "firebase-config.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/favicon.png"];
 const CDN = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];
@@ -23,7 +23,8 @@ self.addEventListener("fetch", e => {
 
   if (sameOrigin && (req.mode === "navigate" || url.pathname.endsWith("firebase-config.js"))) {
     // Primero la red (para recibir actualizaciones); si no hay conexión, la copia guardada.
-    e.respondWith(fetch(req).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return r; })
+    // «no-cache»: pregunta siempre a GitHub si hay versión nueva antes de usar la guardada
+    e.respondWith(fetch(req, { cache: "no-cache" }).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return r; })
       .catch(() => caches.match(req).then(r => r || caches.match("index.html"))));
     return;
   }
