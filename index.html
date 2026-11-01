@@ -478,6 +478,14 @@ body.store .catlabel{font-size:13px}
 .more[open]>summary::after{content:"▾"}
 .more-in{display:flex;flex-direction:column;gap:12px;padding:0 14px 14px}
 
+.grid2>*,.grid4>*{min-width:0}
+.field input,.field select,.field textarea{min-width:0;max-width:100%;box-sizing:border-box}
+.field input[type=date]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-height:46px;text-align:left}
+.field input[type=date]::-webkit-date-and-time-value{text-align:left}
+.date-field{overflow:hidden}
+.pm-book{font-style:italic}
+.book-src{font-size:12.5px;color:var(--muted);margin:-2px 0 0}
+
 /* ---- Web independiente ---- */
 html,body{margin:0}
 [hidden]{display:none!important}
@@ -1133,7 +1141,8 @@ function authBoxHTML(it){ const a=authorsOf(it); if(!a.length) return "";
   const f=a[0];
   return `<div class="who-box">${avatarImgs(a)}<span><strong>Apuntado por ${esc(whoName(f.uid))}</strong> ${esc(whenTxt(f.at))}${a.slice(1).map(x=>`<br>También lo pidió <strong>${esc(whoName(x.uid))}</strong>${x.qty?` (${esc(qtyText(x.qty,x.unit))})`:""} ${esc(whenTxt(x.at))}`).join("")}${it.done&&it.doneBy?`<br>Comprado por <strong>${esc(whoName(it.doneBy))}</strong> ${esc(whenTxt(it.doneAt))}`:""}</span></div>`; }
 function priceCellHTML(i){ const pi=priceInfo(i); if(!pi) return "";
-  const small=pi.short?pi.short+(pi.fromBook?" · libreta":""):(pi.fromBook?"libreta":"");
+  const src=pi.fromBook?(pi.bookStore&&pi.bookStore!=="General"?pi.bookStore:"libreta"):"";
+  const small=[pi.short,src].filter(Boolean).join(" · ");
   return `<span class="r-price${pi.fromBook?" book":""}"><strong>${fmtEur(pi.total)}</strong>${small?`<small>${esc(small)}</small>`:""}</span>`; }
 function rowHTML(i){
   const spec=i.details?specOf(i.details):(i.spec||"");
@@ -1500,6 +1509,8 @@ function pantryMeta(p){ const d=p.details||{}; const parts=[];
   if(p.qty) parts.push(esc(qtyText(p.qty,p.unit)));
   if(d.tienda&&d.tienda!=="General") parts.push(esc(d.tienda));
   if(+d.precio) parts.push(fmtEur(d.precio)+(d.per&&d.per!=="unidad"?"/"+esc(d.per):""));
+  else { const b=bestBook(p.spaceId,p.name,[d.tienda]);
+    if(b) parts.push(`<span class="pm-book">${fmtEur(b.price)}${b.per&&b.per!=="unidad"?"/"+esc(b.per):""}${b.store!=="General"?" en "+esc(b.store):""}</span>`); }
   const cad=cadHTML(p.caduca); if(cad) parts.push(cad);
   return parts.join(" · "); }
 function paintPantryTab(sp,body,col){
@@ -1534,6 +1545,9 @@ function openPantry(id){
   const base=catalogName(p.name); const cat=p.cat??10; const food=isFood(cat);
   const d=Object.assign({marca:"",variedad:"",tienda:"",precio:"",per:"",nota:"",photo:""},p.details||{});
   if(d.tienda==="General") d.tienda="";
+  let fromBook=null;
+  if(!+d.precio){ const b=bestBook(p.spaceId,p.name,[d.tienda]);
+    if(b){ fromBook=b; d.precio=b.price; d.per=b.per||defaultPer(b.unit); if(!d.tienda&&b.store!=="General") d.tienda=b.store; } }
   let state=p.state||"hay";
   const unit0=p.unit||DEFAULT_UNIT[base]||(UNITS[cat]||UNITS[10])[0];
   const units=[...new Set([...(UNITS[cat]||UNITS[10]),unit0])];
@@ -1550,8 +1564,8 @@ function openPantry(id){
         <div class="grid2">
           <div class="field"><label for="pQty">Cuánto hay</label><input id="pQty" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.qty||"")}" placeholder="Ej.: 1"></div>
           <div class="field"><label for="pUnit">Unidad</label><select id="pUnit">${units.map(u=>`<option ${u===unit0?"selected":""}>${esc(u)}</option>`).join("")}</select></div>
-          <div class="field"><label for="pCad">Caduca</label><input id="pCad" type="date" value="${esc(p.caduca||"")}"></div>
-          <div class="field"><label for="pBrand">Marca preferida</label><input id="pBrand" maxlength="40" value="${esc(d.marca)}" placeholder="Cualquiera"></div>
+          <div class="field date-field" style="grid-column:1/-1"><label for="pCad">Caduca (opcional)</label><input id="pCad" type="date" value="${esc(p.caduca||"")}"></div>
+          <div class="field" style="grid-column:1/-1"><label for="pBrand">Marca preferida</label><input id="pBrand" maxlength="40" value="${esc(d.marca)}" placeholder="Cualquiera"></div>
         </div>
       </section>
       <section class="fs"><p class="label">Para la próxima compra</p>
@@ -1562,6 +1576,7 @@ function openPantry(id){
           ${variants?`<div class="field"><label for="pVar">Variedad</label><select id="pVar"><option value="">Indiferente</option>${variants.map(o=>`<option ${o===d.variedad?"selected":""}>${esc(o)}</option>`).join("")}</select></div>`
                     :`<div class="field"><label for="pVar">Tipo o variedad</label><input id="pVar" maxlength="40" value="${esc(d.variedad)}" placeholder="Opcional"></div>`}
         </div>
+        ${fromBook?`<p class="book-src">Precio rellenado con la libreta (${esc(storeLabel(fromBook.store))}, ${esc(agoTxt(fromBook.at||0))}).</p>`:""}
         <div class="book-note" id="pBook"></div>
       </section>
       <details class="more"><summary>Información nutricional, foto y notas</summary><div class="more-in">
@@ -1593,7 +1608,7 @@ function openPantry(id){
       const onStore=()=>{ const b=bookPrice(sp.id,p.name,q("#pStore").value||"General"); const pi=q("#pPrice");
         if(b&&(!pi.value||+pi.value===autoPrice)){ pi.value=b.price; autoPrice=b.price; if(b.per) q("#pPer").value=b.per; } book(); };
       q("#pStore").addEventListener("change",onStore); ["#pPrice","#pPer"].forEach(x=>q(x).addEventListener("input",book));
-      if(!+d.precio) onStore(); else book();
+      book();
       q("#ppFile").onchange=async ev=>{const f=ev.target.files&&ev.target.files[0]; if(!f) return;
         try{ photo=await compressImage(f); q("#ppPrev").innerHTML=`<img referrerpolicy="no-referrer" src="${photo}" alt="">`; q("#ppDel").hidden=false; }catch(x){ toast("No se ha podido leer la imagen. Prueba con otra foto."); } };
       q("#ppDel").onclick=()=>{ photo=""; q("#ppPrev").innerHTML="<span>Sin foto</span>"; q("#ppDel").hidden=true; };
@@ -1602,7 +1617,8 @@ function openPantry(id){
         if(photo) det.photo=photo; else delete det.photo;
         if(food) det.nutr={kcal:num("#pnK"),p:num("#pnP"),c:num("#pnC"),f:num("#pnF")};
         await S.db.doc("pantry/"+id).update({state,qty:num("#pQty"),unit:q("#pUnit").value,caduca:q("#pCad").value||"",details:det,updatedAt:Date.now(),by:S.me});
-        if(+det.precio) await recordPrice(sp.id,p.name,det.tienda||"General",det.precio,"","",det.per);
+        if(+det.precio){ const prev=bookPrice(sp.id,p.name,det.tienda||"General");
+          if(!prev||+prev.price!==+det.precio||(prev.per||"")!==det.per) await recordPrice(sp.id,p.name,det.tienda||"General",det.precio,"","",det.per); }
         return det; };
       q("#fPan").onsubmit=async e=>{ e.preventDefault(); try{ const det=await save(); closeSheet(); toast(+det.precio?"Guardado · precio apuntado en la libreta":"Guardado"); }catch(x){ err(x); } };
       q("#pToList").onclick=async()=>{ try{ const det=await save(); closeSheet();
@@ -1755,8 +1771,14 @@ const DEFAULT_STORES=["Consum","Mercadona","Lidl","Carrefour","Dia","Mercado"];
 const storesOf=sp=>(sp&&Array.isArray(sp.stores)&&sp.stores.length)?sp.stores:DEFAULT_STORES;
 const slug=s=>norm(s).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"x";
 const priceKey=(sid,name,store)=>`${sid}__${slug(catalogName(name))}__${slug(store)}`;
-const pricesFor=(sid,name)=>[...S.prices.values()].filter(p=>p.spaceId===sid&&norm(p.product)===norm(catalogName(name))).sort((a,b)=>a.price-b.price);
-const bookPrice=(sid,name,store)=>store?S.prices.get(priceKey(sid,name,store))||null:null;
+const pricesFor=(sid,name)=>{ const k=norm(catalogName(name)); return [...S.prices.values()].filter(p=>p.spaceId===sid&&+p.price>0&&norm(catalogName(p.product))===k).sort((a,b)=>a.price-b.price); };
+const bookPrice=(sid,name,store)=>store?pricesFor(sid,name).find(p=>p.store===store)||null:null;
+/* Mejor precio de la libreta: el del súper preferido; si no, el general; si no, el más reciente de cualquier súper */
+function bestBook(sid,name,prefer){
+  const ps=pricesFor(sid,name); if(!ps.length) return null;
+  for(const st of (prefer||[]).filter(Boolean)){ const b=ps.find(p=>p.store===st); if(b) return b; }
+  return ps.find(p=>p.store==="General")||ps.slice().sort((a,b)=>(b.at||0)-(a.at||0))[0];
+}
 const agoTxt=t=>{const d=Math.floor((Date.now()-t)/864e5); return d<=0?"hoy":d===1?"ayer":d<31?`hace ${d} días`:d<365?`hace ${Math.round(d/30)} ${Math.round(d/30)===1?"mes":"meses"}`:"hace más de un año";};
 /* Precio por unidad, kg, 100 g, litro… y cálculo del total de cada producto */
 const PER_OPTS=[["unidad","unidad"],["kg","kg"],["100 g","100 g"],["L","litro"],["paquete","paquete"],["botella","botella"],["lata","lata"],["pack","pack"],["docena","docena"]];
@@ -1780,12 +1802,12 @@ function lineCalc(price,per,qty,unit){
 function priceInfo(i){
   const d=i.details||{}; const lst=S.lists.get(i.listId)||{};
   let price=+d.precio||0, per=d.per, fromBook=false;
-  if(!price){ const st=d.tienda||lst.store||"";
-    const b=bookPrice(i.spaceId,i.name,st)||(lst.store&&lst.store!==st?bookPrice(i.spaceId,i.name,lst.store):null)||bookPrice(i.spaceId,i.name,"General");
-    if(b){ price=+b.price; per=b.per||defaultPer(b.unit); fromBook=true; } }
+  let bookStore="";
+  if(!price){ const b=bestBook(i.spaceId,i.name,[d.tienda,lst.store]);
+    if(b){ price=+b.price; per=b.per||defaultPer(b.unit); fromBook=true; bookStore=b.store; } }
   if(!(price>0)) return null;
   per=per||defaultPer(d.unit);
-  return {...lineCalc(price,per,d.qty,d.unit),price,per,fromBook};
+  return {...lineCalc(price,per,d.qty,d.unit),price,per,fromBook,bookStore};
 }
 const storeLabel=s=>s==="General"?"Sin súper":s;
 async function recordPrice(sid,name,store,price,qty,unit,per){
@@ -2101,7 +2123,7 @@ const isFood=c=>c>=0&&c<=6;
 const per100=(name,cat)=>(cat===5||LIQUIDS.has(name))?"100 ml":"100 g";
 const fmtN=(n,d=0)=>Number(n).toLocaleString("es-ES",{maximumFractionDigits:d});
 const fmtEur=n=>Number(n).toLocaleString("es-ES",{style:"currency",currency:"EUR"});
-function catalogName(name){const c=CAT_BY.get(norm(name));return c?c[0]:name;}
+function catalogName(name){const c=findCat(name);return c?c[0]:String(name||"").trim();}
 function specOf(d){
   if(!d) return "";
   const parts=[];
@@ -2146,7 +2168,7 @@ function openItem(id){
           <div class="field"><label for="iBrand">Marca preferida</label><input id="iBrand" maxlength="40" value="${esc(d.marca)}" placeholder="Cualquiera"></div>
           ${fields.map(fieldHTML).join("")}
           <div class="field"><label for="iStore">Supermercado</label><select id="iStore"><option value="">Indiferente</option>${[...new Set([...storesOf(sp),d.tienda].filter(Boolean))].map(st=>`<option ${st===d.tienda?"selected":""}>${esc(st)}</option>`).join("")}</select></div>
-          <div class="field"><label for="iPrice">Precio (€)</label><input id="iPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(d.precio)}" placeholder="${bookPi?esc("Libreta: "+fmtEur(bookPi.price)):"Ej.: 3,50"}"></div>
+          <div class="field"><label for="iPrice">Precio (€)</label><input id="iPrice" type="number" inputmode="decimal" min="0" step="0.01" value="${esc(d.precio||(bookPi?bookPi.price:""))}" placeholder="Ej.: 3,50"></div>
           <div class="field"><label for="iPer">Precio por</label>${perSelect("iPer",d.per||bookPi?.per||defaultPer(d.unit))}</div>
           <div class="price-hint" id="pHint"></div>
         </div>
@@ -2198,10 +2220,10 @@ function openItem(id){
       const hint=()=>{ const st=q("#iStore").value; const ps=pricesFor(sp.id,it.name); const box=q("#pHint");
         const cur=ps.find(x=>x.store===st);
         let h="";
-        const pv=+q("#iPrice").value||(bookPi?bookPi.price:0);
+        const pv=+q("#iPrice").value;
         if(pv){ const lc=lineCalc(pv,q("#iPer").value,+q("#iQty").value||0,q("#iUnit").value);
-          h+=`<p><strong>En la lista: ${fmtEur(lc.total)}</strong>${lc.sub?" · "+esc(lc.sub):""}${!+q("#iPrice").value?" (precio de la libreta)":""}</p>`;
-          if(+q("#iPrice").value) h+=`<p>Al guardar se apunta en la libreta de precios${st?" de "+esc(st):" como precio general"}.</p>`; }
+          h+=`<p><strong>En la lista: ${fmtEur(lc.total)}</strong>${lc.sub?" · "+esc(lc.sub):""}${bookPi&&+q("#iPrice").value===+bookPi.price?" (precio de la libreta"+(bookPi.bookStore&&bookPi.bookStore!=="General"?", "+esc(bookPi.bookStore):"")+")":""}</p>`;
+          if(!(bookPi&&+q("#iPrice").value===+bookPi.price)) h+=`<p>Al guardar se apunta en la libreta de precios${st?" de "+esc(st):" como precio general"}.</p>`; }
         if(cur) h+=`<p><strong>Último precio en ${esc(st)}:</strong> ${fmtEur(cur.price)}${cur.qty?` por ${esc(qtyText(cur.qty,cur.unit))}`:""} · ${esc(agoTxt(cur.at))}</p>`;
         else if(st) h+=`<p>Aún no hay precio guardado en ${esc(st)}. Si lo pones, se recordará para la próxima vez.</p>`;
         if(ps.length>1||(ps.length===1&&!cur)) h+=`<div class="pr-stores">${ps.map((x,k)=>`<button type="button" class="pr-chip${k===0&&ps.length>1?" best":""}" data-usest="${esc(x.store)}"><span>${esc(x.store)}</span><strong>${fmtEur(x.price)}</strong></button>`).join("")}</div>`;
@@ -2222,9 +2244,10 @@ function openItem(id){
         fields.forEach(f=>{const v=q("#x_"+f.k).value.trim(); if(v&&v!=="Indiferente"&&v!=="No hace falta") det[f.k]=f.n?Math.max(0,+v):v;});
         if(food) det.nutr={kcal:num("#nK"),p:num("#nP"),c:num("#nC"),f:num("#nF")};
         if(photo) det.photo=photo;
-        det.tienda=q("#iStore").value||""; det.per=q("#iPer").value;
+        det.tienda=q("#iStore").value||(bookPi&&+det.precio===+bookPi.price&&bookPi.bookStore!=="General"?bookPi.bookStore:""); det.per=q("#iPer").value;
         const n=q("#iName").value.trim()||it.name;
-        try{const {id:_omit,...rest}=S.items.get(id)||it; await S.db.doc("items/"+id).set({...rest,name:n,cat:+q("#iCat").value,details:det,spec:specOf(det),assignee:q("#iWho").value||null});if(+det.precio) recordPrice(sp.id,n,det.tienda||(S.lists.get(it.listId)||{}).store||"General",det.precio,det.qty,det.unit,det.per); closeSheet();toast("Guardado");}catch(x){err(x)}};
+        try{const {id:_omit,...rest}=S.items.get(id)||it; await S.db.doc("items/"+id).set({...rest,name:n,cat:+q("#iCat").value,details:det,spec:specOf(det),assignee:q("#iWho").value||null});if(+det.precio){ const stx=det.tienda||(S.lists.get(it.listId)||{}).store||"General"; const prev=bookPrice(sp.id,n,stx);
+          if(!prev||+prev.price!==+det.precio||(prev.per||"")!==det.per) recordPrice(sp.id,n,stx,det.precio,det.qty,det.unit,det.per); } closeSheet();toast("Guardado");}catch(x){err(x)}};
       q("#iDel").onclick=async()=>{try{await S.db.doc("items/"+id).delete();closeSheet();}catch(x){err(x)}};
     });
 }
