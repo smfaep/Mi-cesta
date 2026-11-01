@@ -519,6 +519,44 @@ body.store .row-item.swipe .sw-content{min-height:70px}
 .list-cats .chip.on,.pcat-bar .chip.on{background:var(--fg)!important;color:var(--bg)!important;border-color:var(--fg)!important}
 .list-cats .chip.on em,.pcat-bar .chip.on em{color:inherit;opacity:.7}
 
+.cfg-list{list-style:none;margin:0;padding:0;border:1px solid var(--fline,var(--line));border-radius:16px;overflow:hidden}
+.cfg-row{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-top:1px solid var(--fline,var(--line));background:var(--sheet,var(--surface))}
+.cfg-row:first-child{border-top:0}
+.cfg-row.off .cfg-name{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--fline,var(--line))}
+.cfg-name{flex:1;min-width:0;font-weight:600;overflow-wrap:anywhere}
+.cfg-name em{font-style:normal;font-weight:500;color:var(--muted);font-size:12.5px;margin-left:4px}
+.cfg-tog{flex:none;width:44px;height:26px;border-radius:999px;border:0;background:var(--surface-2);position:relative;padding:0}
+.cfg-tog::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.cfg-tog[aria-checked="true"]{background:var(--fg)}
+.cfg-tog[aria-checked="true"]::after{transform:translateX(18px);background:var(--bg)}
+.cfg-mv{flex:none;width:32px;height:32px;border:0;border-radius:9px;background:none;color:var(--muted);font-size:16px}
+.cfg-mv:hover{background:var(--surface-2);color:var(--fg)}
+.cfg-mv[disabled]{opacity:.25}
+.cfg-actions{display:flex;flex-wrap:wrap;gap:8px}
+
+/* ---- Arrastrar a otra categoría ---- */
+.row-item.swipe,.pantry-row{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.drag-ghost{position:fixed;left:0;top:0;z-index:100;pointer-events:none;display:flex;align-items:center;gap:8px;padding:9px 16px 9px 12px;border-radius:999px;
+  background:var(--fg);color:var(--bg);font-weight:700;font-size:15px;box-shadow:0 14px 34px rgba(0,0,0,.35);will-change:transform}
+.drag-ghost .r-ico{font-size:20px;width:auto}
+.drag-ghost .r-photo{width:24px;height:24px}
+.drag-src{opacity:.35;transition:opacity .15s}
+body.cat-dragging{-webkit-user-select:none;user-select:none;cursor:grabbing}
+body.cat-dragging .cat-group{border-radius:16px;outline:2px dashed transparent;outline-offset:4px;transition:outline-color .15s,background .15s}
+body.cat-dragging .cat-group.drop-on{outline-color:var(--fg);background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.chip.drop-on{background:var(--fg)!important;color:var(--bg)!important;border-color:var(--fg)!important;transform:scale(1.06)}
+.drag-hint{margin:0;font-size:12.5px;color:var(--muted)}
+
+.sheet{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.sheet>*{flex-shrink:0}
+
+.suggest .sg-head{padding:8px 14px 4px;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--line)}
+.suggest .sg-head:first-child{border-top:0}
+.sg-tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--surface-2);color:var(--muted);margin-right:4px;vertical-align:1px}
+.sg-tag.no{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.sg-tag.poco{background:color-mix(in srgb,#d98a00 16%,transparent);color:#a86a00}
+.row-add.pantry-hit .r-plus{font-weight:700}
+
 /* ---- Web independiente ---- */
 html,body{margin:0}
 [hidden]{display:none!important}
@@ -1158,7 +1196,9 @@ function mountList(){
 }
 async function addEntries(text,target){
   const entries=splitEntries(text); if(!entries.length) return;
-  for(const e of entries) await addItem(e.name,target,entries.length>1,{qty:e.qty,unit:e.unit});
+  const sid=(target||S.view).spaceId;
+  for(const e of entries){ const p=sid?pantryMatch(sid,e.name):null;
+    await addItem(p?p.name:e.name,target,entries.length>1,p?{...pantryExtra(p),qty:e.qty,unit:e.unit}:{qty:e.qty,unit:e.unit}); }
   if(entries.length>1) toast(`${entries.length} productos añadidos`);
 }
 function rowIcon(i){
@@ -1269,7 +1309,7 @@ function paintList(){
     html+=`<div class="empty"><div style="font-size:40px">✅</div><p class="e-big">${S.storeMode?"Ya lo tienes todo":"No falta nada"}</p><p>${S.storeMode?"Pulsa «Finalizar compra» cuando pases por caja.":"Escribe arriba lo que necesitas. Puedes poner varias cosas separadas por comas."}</p></div>`;
   } else if(S.storeMode){
     const todo=pend.filter(i=>!i.checked), cart=pend.filter(i=>i.checked);
-    html+=`<div>`+catGroupsHTML(todo,sp,false);
+    html+=`<div>`+catGroupsHTML(todo,sp,false,{type:"list",id:l.id});
     if(cart.length) html+=`<p class="catlabel">En el carro</p><ul class="rows">${cart.map(rowHTML).join("")}</ul>`;
     html+=`</div>`;
   } else {
@@ -1277,15 +1317,16 @@ function paintList(){
     const est=pis.filter(([i,p])=>p&&!i.checked).reduce((a,[,p])=>a+p.total,0);
     const miss=pis.filter(([,p])=>!p).length;
     if(est||cartTotal) html+=`<div class="sum-card"><div><span>Por comprar</span><strong>≈ ${fmtEur(est)}</strong></div><div><span>En el carro</span><strong>${fmtEur(cartTotal)}</strong></div><div><span>Sin precio</span><strong>${miss}</strong></div></div>`;
-    const cats=pantryCatsOf(sp);
+    const lscope={type:"list",id:l.id};
+    const cats=[...catsFor(sp,lscope),NONE_CAT]; const visIds=new Set(catsFor(sp,lscope).map(c=>c.id));
     if(S.listFilter&&!cats.some(c=>c.id===S.listFilter)&&!S.listFilterNew) S.listFilter="";
     const lf=cats.some(c=>c.id===S.listFilter)?S.listFilter:"";
-    const shown=lf?pend.filter(i=>pcatOf(i,sp)===lf):pend;
-    html+=listCatsBarHTML(pend,sp);
+    const shown=lf?pend.filter(i=>groupOf(i,sp,visIds)===lf):pend;
+    html+=listCatsBarHTML(pend,sp,lscope);
     html+=`<div><p class="label">Por comprar <span class="count">${shown.filter(i=>!i.checked).length}</span>${nChecked?`<span class="label-note">${nChecked} en el carro</span>`:""}</p>`;
     const fc=lf?cats.find(c=>c.id===lf):null;
-    if(fc&&!shown.length) html+=`<div class="empty"><p class="e-big">Nada en «${esc(fc.name)}»</p><p>Escribe arriba y lo que añadas irá a esta categoría.</p>${fc.custom?`<button class="linkish" data-pcedit="${esc(fc.id)}">Editar categoría</button>`:""}</div>`;
-    html+=catGroupsHTML(shown,sp,true);
+    if(fc&&!shown.length) html+=`<div class="empty"><p class="e-big">Nada en «${esc(fc.name)}»</p><p>Escribe arriba y lo que añadas irá a esta categoría.</p>${fc.id!=="_none"?`<button class="linkish" data-pcedit="${esc(fc.id)}">Editar categoría</button>`:""}</div>`;
+    html+=catGroupsHTML(shown,sp,true,lscope);
     html+=`</div>`;
     html+=compareHTML(sp,pend.filter(i=>!i.checked));
   }
@@ -1294,10 +1335,11 @@ function paintList(){
     html+=hab||quickPicksHTML(all);
     if(recent.length) html+=`<div><p class="label">Comprado hace poco</p><ul class="rows soft">${recent.map(i=>simpleRowHTML(i,`data-readd="${esc(i.id)}"`,"Añadir")).join("")}</ul></div>`;
   }
-  const dyn=$("#dyn"); dyn.innerHTML=html; wireSwipe(dyn);
+  const dyn=$("#dyn"); dyn.innerHTML=html; wireSwipe(dyn); wireDragCats(dyn,"items");
   dyn.querySelectorAll("[data-lf]").forEach(b=>b.onclick=()=>{ S.listFilter=b.dataset.lf; S.listFilterNew=false; paintList(); setListPlaceholder(sp); });
   dyn.querySelectorAll("[data-pcedit]").forEach(b=>b.onclick=()=>openPantryCat(sp.id,b.dataset.pcedit,"list"));
   dyn.querySelectorAll("[data-lcnew]").forEach(b=>b.onclick=()=>openPantryCat(sp.id,null,"list"));
+  dyn.querySelectorAll("[data-lccfg]").forEach(b=>b.onclick=()=>openCatConfig(sp.id,{type:"list",id:l.id}));
   setListPlaceholder(sp);
   dyn.querySelectorAll("[data-check]").forEach(b=>b.onclick=()=>toggleChecked(b.dataset.check));
   dyn.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openItem(b.dataset.edit));
@@ -1327,6 +1369,22 @@ function quickPicksHTML(all){
   if(!picks.length) return "";
   return `<div><p class="label">Ideas rápidas</p><div class="chips">${picks.map(n=>`<button class="chip" data-pick="${esc(n)}"><span>${findCat(n)[1]}</span>${esc(n)}</button>`).join("")}</div></div>`;
 }
+
+/* ---- Reconocer productos de la despensa al escribir en una lista ---- */
+const sing=n=>n.replace(/(?<=[^aeiou])es$/,"").replace(/s$/,"");
+function pantryMatch(sid,name){ const n=norm(name); if(!n) return null; const ps=pantryOf(sid);
+  return ps.find(p=>norm(p.name)===n)||ps.find(p=>sing(norm(p.name))===sing(n))||null; }
+function pantryHits(sid,q){ const n=norm(q); if(!n) return [];
+  return pantryOf(sid).map(p=>{ const pn=norm(p.name); const k=pn.indexOf(n); const w=pn.split(/\s+/).some(x=>x.startsWith(n));
+      return {p,score:pn===n||sing(pn)===sing(n)?0:pn.startsWith(n)?1:w?2:k>=0?3:-1}; })
+    .filter(x=>x.score>=0).sort((a,b)=>a.score-b.score||a.p.name.localeCompare(b.p.name)).map(x=>x.p).slice(0,5); }
+function pantryExtra(p){ const d=p.details||{}; const det={marca:d.marca,variedad:d.variedad};
+  if(d.photo) det.photo=d.photo; return {pcat:p.pcat||"",icon:p.icon||"",fromPantry:true,details:det}; }
+function pantryHitHTML(p,sp,pre,inList){ const st=p.state||"hay"; const d=p.details||{};
+  const c=pantryCatsOf(sp).find(x=>x.id===pcatOf(p,sp));
+  const bits=[d.marca,d.variedad,c?c.emoji+" "+c.name:""].filter(Boolean).map(esc).join(" · ");
+  const tag=`<span class="sg-tag ${st}">${esc((PSTATES.find(x=>x[0]===st)||[])[1]||"")}</span>`;
+  return `<li><button class="row-add pantry-hit" data-padd="${esc(p.id)}" data-pre="${esc(pre)}">${rowIcon(p)}<span class="r-text"><span class="r-name">${esc(p.name)}</span><span class="r-spec">${tag}${pre?esc(pre.trim())+" · ":""}${bits}</span></span><span class="r-plus">${inList?"Ya está":"Añadir"}</span></button></li>`; }
 function paintSuggest(){
   const box=$("#suggest"); if(!box) return; const raw=S.query; const q=norm(raw);
   if(!q){box.hidden=true;box.innerHTML="";return;}
@@ -1338,14 +1396,23 @@ function paintSuggest(){
   }
   const e=parseEntry(raw); const nq=norm(e.name);
   const l=S.view.listId; const pendNames=new Set(itemsOf(l).filter(i=>!i.done).map(i=>norm(i.name)));
-  const hits=CATALOG.filter(c=>norm(c[0]).includes(nq)).sort((a,b)=>norm(a[0]).indexOf(nq)-norm(b[0]).indexOf(nq)).slice(0,6);
-  const exact=!!findCat(e.name)&&hits.some(c=>c===findCat(e.name));
+  const sp=S.spaces.get(S.view.spaceId);
+  const ph=pantryHits(S.view.spaceId,e.name); const phNames=new Set(ph.map(p=>norm(p.name)));
+  const hits=CATALOG.filter(c=>norm(c[0]).includes(nq)&&!phNames.has(norm(c[0]))).sort((a,b)=>norm(a[0]).indexOf(nq)-norm(b[0]).indexOf(nq)).slice(0,ph.length?4:6);
+  const pmExact=pantryMatch(S.view.spaceId,e.name);
+  const exact=!!pmExact||(!!findCat(e.name)&&hits.some(c=>c===findCat(e.name)));
   const pre=e.qty?qtyText(e.qty,e.unit)+" ":"";
   let html="";
-  if(!exact) html+=simpleRowHTML({name:prettyName(e.name)},`data-add="${esc(raw.trim())}"`,"Añadir",e.qty?qtyText(e.qty,e.unit):"");
+  if(ph.length){ html+=`<li class="sg-head">En tu despensa</li>`+ph.map(p=>pantryHitHTML(p,sp,pre,[...pendNames].some(n=>sing(n)===sing(norm(p.name))))).join(""); }
+  if(!exact||hits.length) html+=`${ph.length?`<li class="sg-head">Otros productos</li>`:""}`;
+  if(!exact) html+=simpleRowHTML({name:prettyName(e.name)},`data-add="${esc(raw.trim())}"`,"Añadir",[e.qty?qtyText(e.qty,e.unit):"",ph.length?"nuevo":""].filter(Boolean).join(" · "));
   html+=hits.map(c=>simpleRowHTML({name:c[0],icon:c[1]},`data-add="${esc(pre+c[0])}"`,pendNames.has(norm(c[0]))?"Ya está":"Añadir",e.qty?qtyText(e.qty,e.unit):"")).join("");
   box.innerHTML=`<ul class="rows">${html}</ul>`; box.hidden=false;
   box.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{addEntries(b.dataset.add);const i=$("#addInput");i.value="";S.query="";paintSuggest();i.focus();});
+  box.querySelectorAll("[data-padd]").forEach(b=>b.onclick=()=>{ const p=S.pantry.get(b.dataset.padd); if(!p) return;
+    const q=b.dataset.pre?parseEntry(b.dataset.pre+p.name):{};
+    addItem(p.name,undefined,false,{...pantryExtra(p),qty:q.qty,unit:q.unit});
+    const i=$("#addInput");i.value="";S.query="";paintSuggest();i.focus();});
 }
 
 
@@ -1361,7 +1428,7 @@ function wireSwipe(root){
     let x0=0,y0=0,dx=0,base=0,drag=false,lock=null,pid=null;
     c.addEventListener("pointerdown",e=>{ if(e.pointerType==="mouse"&&e.button!==0) return;
       x0=e.clientX; y0=e.clientY; base=li.classList.contains("open")?-SW_OPEN:0; dx=base; lock=null; drag=true; pid=e.pointerId; });
-    c.addEventListener("pointermove",e=>{ if(!drag||e.pointerId!==pid) return;
+    c.addEventListener("pointermove",e=>{ if(DRAG){ drag=false; return; } if(!drag||e.pointerId!==pid) return;
       const mx=e.clientX-x0, my=e.clientY-y0;
       if(lock===null){ if(Math.abs(mx)<8&&Math.abs(my)<8) return;
         lock=Math.abs(mx)>Math.abs(my)*1.2?"x":"y";
@@ -1398,6 +1465,63 @@ async function removeRow(li){
     catch(x){ err(x); li.classList.remove("removing"); li.style.height=""; li.style.opacity=""; swipeTo(li,0); } },230);
 }
 
+
+/* ---- Mantener pulsado y arrastrar a otra categoría ---- */
+let DRAG=null, dragEndAt=0;
+function dragHintHTML(){ let off=false; try{ off=localStorage.getItem("dragHintOff")==="1"; }catch(e){} return off?"":`<p class="drag-hint">Consejo: mantén pulsado un producto y arrástralo a otra categoría.</p>`; }
+document.addEventListener("touchmove",e=>{ if(DRAG) e.preventDefault(); },{passive:false});
+document.addEventListener("click",e=>{ if(Date.now()-dragEndAt<450){ e.stopPropagation(); e.preventDefault(); } },true);
+document.addEventListener("contextmenu",e=>{ if(DRAG||e.target.closest&&e.target.closest(".row-item.swipe,.pantry-row")) e.preventDefault(); });
+function wireDragCats(root,kind){
+  root.querySelectorAll(kind==="items"?".row-item.swipe":".pantry-row").forEach(li=>{
+    const id=kind==="items"?li.dataset.iid:li.dataset.pid; if(!id) return;
+    li.addEventListener("pointerdown",e=>{
+      if(e.pointerType==="mouse"&&e.button!==0) return;
+      if(e.target.closest(".seg,.mini,.sw-del")||li.classList.contains("open")) return;
+      const x0=e.clientX, y0=e.clientY, pid=e.pointerId; let lx=x0, ly=y0;
+      const off=()=>{ clearTimeout(t); window.removeEventListener("pointermove",mv); window.removeEventListener("pointerup",off); window.removeEventListener("pointercancel",off); };
+      const mv=ev=>{ if(ev.pointerId!==pid) return; lx=ev.clientX; ly=ev.clientY; if(Math.hypot(lx-x0,ly-y0)>8) off(); };
+      const t=setTimeout(()=>{ off(); startDrag(li,kind,id,lx,ly,pid); },450);
+      window.addEventListener("pointermove",mv); window.addEventListener("pointerup",off); window.addEventListener("pointercancel",off);
+    });
+  });
+}
+function startDrag(li,kind,id,x,y,pid){
+  if(DRAG||li.classList.contains("open")||li.classList.contains("dragging")) return;
+  const name=(li.querySelector(".r-name")||{}).textContent||""; const ico=li.querySelector(".r-ico,.r-photo");
+  const g=document.createElement("div"); g.className="drag-ghost"; g.innerHTML=(ico?ico.outerHTML:"")+`<span>${esc(name)}</span>`; document.body.appendChild(g);
+  DRAG={li,kind,id,name,ghost:g,target:null,x,y}; li.classList.add("drag-src"); document.body.classList.add("cat-dragging");
+  try{ navigator.vibrate&&navigator.vibrate(15); }catch(e){}
+  const mv=e=>{ if(e.pointerId!==pid) return; e.preventDefault(); moveDrag(e.clientX,e.clientY); };
+  const up=e=>{ if(e.pointerId!==pid) return; endDrag(e.type==="pointerup"); };
+  window.addEventListener("pointermove",mv,{passive:false}); window.addEventListener("pointerup",up); window.addEventListener("pointercancel",up);
+  const key=e=>{ if(e.key==="Escape") endDrag(false); }; document.addEventListener("keydown",key);
+  DRAG.off=()=>{ window.removeEventListener("pointermove",mv); window.removeEventListener("pointerup",up); window.removeEventListener("pointercancel",up); document.removeEventListener("keydown",key); };
+  // Desplazamiento automático cerca de los bordes de la pantalla
+  const tick=()=>{ if(!DRAG) return; const m=90;
+    if(DRAG.y<m) window.scrollBy(0,-Math.ceil((m-DRAG.y)/6)); else if(DRAG.y>innerHeight-m) window.scrollBy(0,Math.ceil((DRAG.y-(innerHeight-m))/6));
+    requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+  moveDrag(x,y);
+}
+function moveDrag(x,y){ if(!DRAG) return; DRAG.x=x; DRAG.y=y;
+  DRAG.ghost.style.transform=`translate(${Math.min(x+14,innerWidth-180)}px,${y-22}px)`;
+  const el=document.elementFromPoint(x,y); const t=el&&el.closest&&el.closest("[data-dropcat]");
+  if(t!==DRAG.target){ if(DRAG.target) DRAG.target.classList.remove("drop-on"); DRAG.target=t; if(t) t.classList.add("drop-on"); } }
+async function endDrag(commit){
+  if(!DRAG) return; const d=DRAG; DRAG=null; dragEndAt=Date.now();
+  d.off(); d.ghost.remove(); d.li.classList.remove("drag-src"); document.body.classList.remove("cat-dragging");
+  if(d.target) d.target.classList.remove("drop-on");
+  if(!commit||!d.target) return;
+  const cid=d.target.dataset.dropcat; const obj=(d.kind==="items"?S.items:S.pantry).get(d.id); if(!obj) return;
+  const sp=S.spaces.get(obj.spaceId); if(pcatOf(obj,sp)===cid&&obj.pcat===cid) return;
+  const data={pcat:cid}; if(cid.startsWith("d")) data.cat=+cid.slice(1);
+  try{ await S.db.doc((d.kind==="items"?"items/":"pantry/")+d.id).update(data);
+    const c=pantryCatsOf(sp).find(x=>x.id===cid);
+    toast(`${d.name} → ${c?c.emoji+" "+c.name:"otra categoría"}`);
+    try{ localStorage.setItem("dragHintOff","1"); }catch(e){} }catch(x){ err(x); }
+}
+
 /* ============ Writes ============ */
 async function addItem(name,target,quiet,extra){
   if(!S.db) return; name=String(name||"").trim().slice(0,60); if(!name) return;
@@ -1431,8 +1555,9 @@ async function addItem(name,target,quiet,extra){
       await S.db.doc("items/"+existing.id).update({done:false,checked:false,addedBy:S.me,addedAt:Date.now(),alsoBy:[],details:d,spec:specOf(d)});
     } else {
       const d=mkDet(null);
-      const pc=extra.pcat||(!target&&S.view.name==="list"&&S.listFilter?S.listFilter:"");
-      await S.db.collection("items").add({spaceId:v.spaceId,listId:v.listId,name:finalName,icon:c?c[1]:"",cat,pcat:pc,spec:specOf(d),details:d,done:false,checked:false,addedBy:S.me,addedAt:Date.now(),alsoBy:[]});
+      const pc=extra.pcat||(!target&&S.view.name==="list"&&S.listFilter&&S.listFilter!=="_none"?S.listFilter:"");
+      const cat2=extra.fromPantry&&extra.pcat&&extra.pcat.startsWith("d")?+extra.pcat.slice(1):cat;
+      await S.db.collection("items").add({spaceId:v.spaceId,listId:v.listId,name:extra.fromPantry?name:finalName,icon:extra.icon||(c?c[1]:""),cat:cat2,pcat:pc,spec:specOf(d),details:d,done:false,checked:false,addedBy:S.me,addedAt:Date.now(),alsoBy:[]});
     }
   }catch(e){err(e)}
 }
@@ -1594,7 +1719,7 @@ function mountPantry(sp){
     for(const en of es){ const c=findCat(en.name); const name=c?c[0]:prettyName(en.name);
       const ex=pantryOf(sp.id).find(p=>norm(p.name)===norm(name));
       try{ if(ex) await S.db.doc("pantry/"+ex.id).update({state:"hay",updatedAt:Date.now()});
-        else await S.db.collection("pantry").add({spaceId:sp.id,name,icon:c?c[1]:"",cat:c?c[2]:10,pcat:S.pantryFilter||"",state:"hay",updatedAt:Date.now(),by:S.me}); }catch(x){err(x)} }
+        else await S.db.collection("pantry").add({spaceId:sp.id,name,icon:c?c[1]:"",cat:c?c[2]:10,pcat:S.pantryFilter&&S.pantryFilter!=="_none"?S.pantryFilter:"",state:"hay",updatedAt:Date.now(),by:S.me}); }catch(x){err(x)} }
   };
   wireForms($("#tabFixed")); try{ S.pantryGroup=S.pantryGroup||localStorage.getItem("pantryGroup")||"cat"; }catch(e){}
   setPantryPlaceholder(sp);
@@ -1627,69 +1752,148 @@ function lastBought(sid,name){
   return best.price?best:null;
 }
 /* Productos de una lista agrupados por categoría */
-function catGroupsHTML(items,sp,editable){
-  let h="";
-  pantryCatsOf(sp).forEach(c=>{ const g=items.filter(i=>pcatOf(i,sp)===c.id); if(!g.length) return;
-    h+=`<div class="li-head"><p class="catlabel">${esc(c.emoji)} ${esc(c.name)}</p>${editable&&c.custom?`<button class="r-edit" data-pcedit="${esc(c.id)}" aria-label="Editar categoría ${esc(c.name)}">${ICON.dots}</button>`:""}</div><ul class="rows">${g.map(rowHTML).join("")}</ul>`; });
+function catGroupsHTML(items,sp,editable,scope){
+  const vis=catsFor(sp,scope); const visIds=new Set(vis.map(c=>c.id)); let h="";
+  const head=(c,ed)=>`<div class="li-head"><p class="catlabel">${esc(c.emoji)} ${esc(c.name)}</p>${ed?`<button class="r-edit" data-pcedit="${esc(c.id)}" aria-label="Editar categoría ${esc(c.name)}">${ICON.dots}</button>`:""}</div>`;
+  vis.forEach(c=>{ const g=items.filter(i=>groupOf(i,sp,visIds)===c.id); if(!g.length) return; h+=`<div class="cat-group" data-dropcat="${esc(c.id)}">`+head(c,editable)+`<ul class="rows">${g.map(rowHTML).join("")}</ul></div>`; });
+  const rest=items.filter(i=>groupOf(i,sp,visIds)==="_none"); if(rest.length) h+=head(NONE_CAT,false)+`<ul class="rows">${rest.map(rowHTML).join("")}</ul>`;
   return h;
 }
-function listCatsBarHTML(pend,sp){
-  const f=S.listFilter||"";
-  const cnt=id=>pend.filter(i=>pcatOf(i,sp)===id).length;
-  const cats=pantryCatsOf(sp).filter(c=>c.custom||cnt(c.id)>0);
+function listCatsBarHTML(pend,sp,scope){
+  const f=S.listFilter||""; const vis=catsFor(sp,scope); const visIds=new Set(vis.map(c=>c.id));
+  const cnt=id=>pend.filter(i=>groupOf(i,sp,visIds)===id).length;
+  const cats=[...vis.filter(c=>c.custom||cnt(c.id)>0),...(cnt("_none")?[NONE_CAT]:[])];
   return `<div class="list-cats"><div class="chips" role="group" aria-label="Categorías">
     <button class="chip ${f?"":"on"}" data-lf="">Todo <em>${pend.length}</em></button>
-    ${cats.map(c=>`<button class="chip ${f===c.id?"on":""}" data-lf="${esc(c.id)}"><span>${esc(c.emoji)}</span>${esc(c.name)} <em>${cnt(c.id)}</em></button>`).join("")}
-    <button class="chip add" data-lcnew>${ICON.plus}Categoría</button></div></div>`;
+    ${cats.map(c=>`<button class="chip ${f===c.id?"on":""}" data-lf="${esc(c.id)}" ${c.id!=="_none"?`data-dropcat="${esc(c.id)}"`:""}><span>${esc(c.emoji)}</span>${esc(c.name)} <em>${cnt(c.id)}</em></button>`).join("")}
+    <button class="chip add" data-lcnew>${ICON.plus}Categoría</button>
+    <button class="chip add" data-lccfg>⚙︎ Ajustar</button></div>${dragHintHTML()}</div>`;
 }
 /* ---- Categorías de la despensa ---- */
 const CAT_EMOJI=["🥦","🥩","🥚","🍞","🥫","🥤","🧊","🧽","🧴","🍼","📦"];
 const PCAT_EMOJI=["🧊","🥣","🍝","🍫","🍷","🧂","🍼","🐾","🥗","🍱","🍪","🧃","🫙","🌶️","🧁","🍳","🥜","🏷️"];
+/* Todas las categorías activas del espacio: las propias primero y luego las de siempre (editables y borrables) */
 function pantryCatsOf(sp){
+  const defs=(sp&&sp.catDefs)||{};
   const custom=((sp&&sp.pantryCats)||[]).map(c=>({id:c.id,name:c.name,emoji:c.emoji||"🏷️",custom:true}));
-  return [...custom,...CATS.map((n,k)=>({id:"d"+k,name:n,emoji:CAT_EMOJI[k]||"📦"}))];
+  const base=CATS.map((n,k)=>{ const id="d"+k, o=defs[id]||{}; return o.deleted?null:{id,name:o.name||n,emoji:o.emoji||CAT_EMOJI[k]||"📦",custom:false}; }).filter(Boolean);
+  return [...custom,...base];
 }
+const NONE_CAT={id:"_none",name:"Sin categoría",emoji:"📦"};
 function pcatOf(p,sp){
-  if(p.pcat&&(p.pcat.startsWith("d")||((sp&&sp.pantryCats)||[]).some(c=>c.id===p.pcat))) return p.pcat;
-  return "d"+(p.cat??10);
+  const ids=new Set(pantryCatsOf(sp).map(c=>c.id));
+  if(p.pcat&&ids.has(p.pcat)) return p.pcat;
+  const d="d"+(p.cat??10); return ids.has(d)?d:"_none";
+}
+/* Qué categorías usa cada lista (o la despensa) y en qué orden */
+function scopeCfg(sp,scope){
+  if(scope&&scope.type==="list"){ const l=S.lists.get(scope.id)||{}; return {order:l.catOrder||[],hidden:l.catHidden||[]}; }
+  return {order:(sp&&sp.pantryOrder)||[],hidden:(sp&&sp.pantryHidden)||[]};
+}
+function orderedCats(sp,scope){
+  const all=pantryCatsOf(sp); const {order}=scopeCfg(sp,scope);
+  const pos=id=>{ const k=order.indexOf(id); return k<0?1000+all.findIndex(c=>c.id===id):k; };
+  return all.slice().sort((a,b)=>pos(a.id)-pos(b.id));
+}
+function catsFor(sp,scope){ const {hidden}=scopeCfg(sp,scope); return orderedCats(sp,scope).filter(c=>!hidden.includes(c.id)); }
+/* Grupo en el que se ve un producto: su categoría si se usa aquí; si no, «Sin categoría» */
+function groupOf(p,sp,vis){ const c=pcatOf(p,sp); return vis.has(c)?c:"_none"; }
+function catOptionsHTML(sp,scope,curId){
+  const vis=catsFor(sp,scope); const all=pantryCatsOf(sp);
+  const cur=all.find(c=>c.id===curId&&!vis.some(v=>v.id===c.id));
+  const opts=[...(cur?[cur]:[]),...vis];
+  return opts.map(c=>`<option value="${esc(c.id)}" ${c.id===curId?"selected":""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("")
+    +(curId==="_none"?`<option value="_none" selected>📦 Sin categoría</option>`:"")
+    +`<option value="__new">＋ Nueva categoría…</option>`;
 }
 async function saveSpaceCats(sp,list){ await S.db.doc("spaces/"+sp.id).update({pantryCats:list}); }
+async function saveCatDefs(sp,defs){ await S.db.doc("spaces/"+sp.id).update({catDefs:defs}); }
 async function createPantryCat(sp,name,emoji){
   name=String(name||"").trim().slice(0,30); if(!name) return null;
   const list=[...(sp.pantryCats||[])];
   const ex=pantryCatsOf(sp).find(c=>norm(c.name)===norm(name)); if(ex) return ex.id;
+  // Si coincide con una de siempre que se borró, se recupera
+  const k=CATS.findIndex(n=>norm(n)===norm(name)); if(k>=0&&((sp.catDefs||{})["d"+k]||{}).deleted){ const defs={...(sp.catDefs||{})}; defs["d"+k]={...defs["d"+k],deleted:false}; await saveCatDefs(sp,defs); return "d"+k; }
   const id="u_"+Math.random().toString(36).slice(2,9);
   list.push({id,name,emoji:emoji||"🏷️"}); await saveSpaceCats(sp,list); return id;
 }
-function openPantryCat(sid,cid,ctx){
-  const sp=S.spaces.get(sid); const cur=cid?(sp.pantryCats||[]).find(c=>c.id===cid):null;
+function openPantryCat(sid,cid,ctx,onDone){
+  const sp=S.spaces.get(sid); const cur=cid?pantryCatsOf(sp).find(c=>c.id===cid):null;
   const st={emoji:cur?cur.emoji:"🏷️"};
   const n=cur?pantryOf(sid).filter(p=>pcatOf(p,sp)===cid).length+[...S.items.values()].filter(i=>i.spaceId===sid&&!i.done&&pcatOf(i,sp)===cid).length:0;
+  const emojis=[...new Set([st.emoji,...(cur&&!cur.custom?[CAT_EMOJI[+cid.slice(1)]]:[]),...CAT_EMOJI,...PCAT_EMOJI])];
+  const done=()=>{ closeSheet(); if(onDone) onDone(); else refresh(); };
   sheet(colorVar(sp.color),`<h2>${cur?"Editar categoría":"Nueva categoría"}</h2>
-    <p>${cur?`${n} ${n===1?"producto":"productos"} en esta categoría.`:"Crea un grupo a tu medida, por ejemplo «Congelador», «Desayunos» o «Cosas del bebé»."}</p>
+    <p>${cur?`${n} ${n===1?"producto":"productos"} en esta categoría. Los cambios se ven en todas las listas y en la despensa.`:"Crea un grupo a tu medida, por ejemplo «Congelador», «Desayunos» o «Cosas del bebé»."}</p>
     <form id="fPcat" class="item-form">
       <div class="field"><label for="pcName">Nombre</label><input id="pcName" maxlength="30" value="${esc(cur?cur.name:"")}" placeholder="Ej.: Congelador"></div>
-      <div class="field"><label>Icono</label>${pickerHTML("pcEmoji",PCAT_EMOJI,st.emoji)}</div>
+      <div class="field"><label>Icono</label><div class="emoji-grid">${pickerHTML("pcEmoji",emojis,st.emoji)}</div></div>
       <button class="btn block" type="submit">${cur?"Guardar":"Crear categoría"}</button>
       ${cur?`<button type="button" class="linkish" id="pcDel" style="color:var(--danger);align-self:flex-start">Eliminar categoría</button>`:""}
     </form>`,el=>{
       wirePicker(el,"pcEmoji",v=>st.emoji=v);
-      el.querySelector("#fPcat").onsubmit=async e=>{ e.preventDefault(); const name=el.querySelector("#pcName").value.trim();
+      el.querySelector("#fPcat").onsubmit=async e=>{ e.preventDefault(); const name=el.querySelector("#pcName").value.trim().slice(0,30);
         if(!name){ toast("Ponle un nombre a la categoría"); return; }
         try{
-          if(cur){ await saveSpaceCats(sp,(sp.pantryCats||[]).map(c=>c.id===cid?{...c,name:name.slice(0,30),emoji:st.emoji}:c)); toast("Categoría guardada"); }
-          else { const id=await createPantryCat(sp,name,st.emoji); if(ctx==="list"){ S.listFilter=id; S.listFilterNew=true; } else S.pantryFilter=id; toast(`Categoría «${name}» creada`); }
-          closeSheet(); refresh();
+          if(cur&&cur.custom){ await saveSpaceCats(sp,(sp.pantryCats||[]).map(c=>c.id===cid?{...c,name,emoji:st.emoji}:c)); toast("Categoría guardada"); }
+          else if(cur){ const defs={...(sp.catDefs||{})}; defs[cid]={...(defs[cid]||{}),name,emoji:st.emoji,deleted:false}; await saveCatDefs(sp,defs); toast("Categoría guardada"); }
+          else { const id=await createPantryCat(sp,name,st.emoji); if(ctx==="list"){ S.listFilter=onDone?S.listFilter:id; S.listFilterNew=!onDone; } else if(!onDone) S.pantryFilter=id; toast(`Categoría «${name}» creada`); }
+          done();
         }catch(x){ err(x); } };
-      const del=el.querySelector("#pcDel"); if(del) del.onclick=()=>confirmSheet(colorVar(sp.color),`¿Eliminar «${cur.name}»?`,"Sus productos no se borran: vuelven a su categoría de siempre.","Eliminar",async()=>{
-        for(const p of pantryOf(sid).filter(p=>p.pcat===cid)) await S.db.doc("pantry/"+p.id).update({pcat:""});
-        for(const i of [...S.items.values()].filter(i=>i.spaceId===sid&&i.pcat===cid)) await S.db.doc("items/"+i.id).update({pcat:""});
-        await saveSpaceCats(sp,(sp.pantryCats||[]).filter(c=>c.id!==cid));
-        if(S.pantryFilter===cid) S.pantryFilter=""; if(S.listFilter===cid) S.listFilter=""; });
+      const del=el.querySelector("#pcDel"); if(del) del.onclick=()=>confirmSheet(colorVar(sp.color),`¿Eliminar «${cur.name}»?`,
+        cur.custom?"Se quita de todas las listas y de la despensa. Sus productos vuelven a su categoría de siempre o quedan en «Sin categoría».":"Se quita de todas las listas y de la despensa. Sus productos quedan en «Sin categoría». Podrás recuperarla desde «Categorías de esta lista».",
+        "Eliminar",async()=>{
+        if(cur.custom){
+          for(const p of pantryOf(sid).filter(p=>p.pcat===cid)) await S.db.doc("pantry/"+p.id).update({pcat:""});
+          for(const i of [...S.items.values()].filter(i=>i.spaceId===sid&&i.pcat===cid)) await S.db.doc("items/"+i.id).update({pcat:""});
+          await saveSpaceCats(sp,(sp.pantryCats||[]).filter(c=>c.id!==cid));
+        } else { const defs={...(sp.catDefs||{})}; defs[cid]={...(defs[cid]||{}),deleted:true}; await saveCatDefs(sp,defs); }
+        if(S.pantryFilter===cid) S.pantryFilter=""; if(S.listFilter===cid) S.listFilter="";
+        if(onDone) setTimeout(onDone,250); });
+    });
+}
+/* Configurar las categorías de una lista o de la despensa: cuáles se usan, en qué orden, editar, borrar y crear */
+function openCatConfig(sid,scope){
+  const sp=S.spaces.get(sid); const isList=scope.type==="list"; const l=isList?S.lists.get(scope.id):null;
+  const cfg=scopeCfg(sp,scope);
+  let order=orderedCats(sp,scope).map(c=>c.id); const hidden=new Set(cfg.hidden);
+  const pool=isList?itemsOf(scope.id).filter(i=>!i.done):pantryOf(sid);
+  const count=id=>pool.filter(p=>pcatOf(p,sp)===id).length;
+  const deletedDefaults=CATS.map((n,k)=>"d"+k).filter(id=>((sp.catDefs||{})[id]||{}).deleted);
+  const save=async()=>{ const data={catOrder:order,catHidden:[...hidden].filter(id=>order.includes(id))};
+    if(isList) await S.db.doc("lists/"+scope.id).update(data); else await S.db.doc("spaces/"+sid).update({pantryOrder:data.catOrder,pantryHidden:data.catHidden}); };
+  sheet(colorVar(sp.color),`<h2>Categorías ${isList?`de «${esc(l.name)}»`:"de la despensa"}</h2>
+    <p>Activa las que quieras usar ${isList?"en esta lista":"en la despensa"} y ordénalas con las flechas. Con el lápiz cambias su nombre o icono, o la borras del todo.</p>
+    <ul class="cfg-list" id="cfgList"></ul>
+    <div class="cfg-actions">
+      <button class="btn quiet" id="cfgNew">${ICON.plus}Nueva categoría</button>
+      <button class="btn quiet" id="cfgAll">Activar todas</button>
+      ${deletedDefaults.length?`<button class="btn quiet" id="cfgRestore">Recuperar borradas (${deletedDefaults.length})</button>`:""}
+    </div>
+    <button class="btn block" id="cfgSave">Guardar</button>`,el=>{
+      const cats=()=>{ const all=pantryCatsOf(S.spaces.get(sid)); return order.map(id=>all.find(c=>c.id===id)).filter(Boolean); };
+      const draw=()=>{ const cs=cats();
+        el.querySelector("#cfgList").innerHTML=cs.map((c,k)=>{ const on=!hidden.has(c.id), n=count(c.id); return `<li class="cfg-row ${on?"":"off"}">
+          <button class="cfg-tog" role="switch" aria-checked="${on}" data-tog="${esc(c.id)}" aria-label="Usar ${esc(c.name)}"></button>
+          <span class="cfg-name">${esc(c.emoji)} ${esc(c.name)}${n?`<em>${n}</em>`:""}</span>
+          <button class="cfg-mv" data-up="${k}" ${k===0?"disabled":""} aria-label="Subir ${esc(c.name)}">↑</button>
+          <button class="cfg-mv" data-down="${k}" ${k===cs.length-1?"disabled":""} aria-label="Bajar ${esc(c.name)}">↓</button>
+          <button class="r-edit" data-cedit="${esc(c.id)}" aria-label="Editar ${esc(c.name)}">${ICON.pen}</button></li>`; }).join("");
+        el.querySelectorAll("[data-tog]").forEach(b=>b.onclick=()=>{ const id=b.dataset.tog; hidden.has(id)?hidden.delete(id):hidden.add(id); draw(); });
+        el.querySelectorAll("[data-up]").forEach(b=>b.onclick=()=>{ const ids=cats().map(c=>c.id); const k=+b.dataset.up; [ids[k-1],ids[k]]=[ids[k],ids[k-1]]; order=ids; draw(); });
+        el.querySelectorAll("[data-down]").forEach(b=>b.onclick=()=>{ const ids=cats().map(c=>c.id); const k=+b.dataset.down; [ids[k+1],ids[k]]=[ids[k],ids[k+1]]; order=ids; draw(); });
+        el.querySelectorAll("[data-cedit]").forEach(b=>b.onclick=async()=>{ try{ await save(); }catch(x){} openPantryCat(sid,b.dataset.cedit,isList?"list":"pantry",()=>openCatConfig(sid,scope)); });
+      };
+      draw();
+      el.querySelector("#cfgNew").onclick=async()=>{ try{ await save(); }catch(x){} openPantryCat(sid,null,isList?"list":"pantry",()=>setTimeout(()=>openCatConfig(sid,scope),250)); };
+      el.querySelector("#cfgAll").onclick=()=>{ hidden.clear(); draw(); };
+      const rs=el.querySelector("#cfgRestore"); if(rs) rs.onclick=async()=>{ const defs={...(sp.catDefs||{})}; deletedDefaults.forEach(id=>defs[id]={...defs[id],deleted:false});
+        try{ await save(); await saveCatDefs(sp,defs); toast("Categorías recuperadas"); setTimeout(()=>openCatConfig(sid,scope),250); }catch(x){ err(x); } };
+      el.querySelector("#cfgSave").onclick=async()=>{ try{ await save(); closeSheet(); toast("Categorías guardadas"); }catch(x){ err(x); } };
     });
 }
 function pantryRowHTML(p){ const st=p.state||"hay"; const meta=pantryMeta(p); return `
-  <li class="pantry-row st-${st}">
+  <li class="pantry-row st-${st}" data-pid="${esc(p.id)}">
     <button class="p-open" data-popen="${esc(p.id)}" aria-label="Editar ${esc(p.name)}">${rowIcon(p)}<span class="r-text"><span class="r-name">${esc(p.name)}</span>${meta?`<span class="pr-meta">${meta}</span>`:""}</span></button>
     <span class="seg" role="group" aria-label="Estado de ${esc(p.name)}">${PSTATES.map(([k,l])=>`<button data-pst="${esc(p.id)}" data-v="${k}" aria-pressed="${st===k}">${l}</button>`).join("")}</span>
     ${st!=="hay"?`<button class="mini" data-p2l="${esc(p.id)}" aria-label="Añadir ${esc(p.name)} a la lista">${ICON.plus}Lista</button>`:""}
@@ -1697,21 +1901,24 @@ function pantryRowHTML(p){ const st=p.state||"hay"; const meta=pantryMeta(p); re
   </li>`; }
 const stateRank={no:0,poco:1,hay:2};
 function paintPantryTab(sp,body,col){
-  const all=pantryOf(sp.id); const cats=pantryCatsOf(sp);
-  // Si la categoría elegida aún no ha llegado (recién creada), se muestra todo sin perder la elección
+  const all=pantryOf(sp.id); const pscope={type:"pantry"};
+  const vis=catsFor(sp,pscope); const visIds=new Set(vis.map(c=>c.id)); const cats=[...vis,NONE_CAT];
   const group=S.pantryGroup||"cat", filter=S.pantryFilter&&cats.some(c=>c.id===S.pantryFilter)?S.pantryFilter:"";
-  const count=id=>all.filter(p=>pcatOf(p,sp)===id).length;
-  const chipCats=cats.filter(c=>c.custom||count(c.id)>0);
+  const count=id=>all.filter(p=>groupOf(p,sp,visIds)===id).length;
+  const chipCats=cats.filter(c=>c.id==="_none"?count(c.id)>0:(c.custom||count(c.id)>0));
   let html=`<div class="pcat-bar">
     <div class="chips" role="group" aria-label="Categorías">
       <button class="chip ${filter?"":"on"}" data-pf="">Todo <em>${all.length}</em></button>
-      ${chipCats.map(c=>`<button class="chip ${filter===c.id?"on":""}" data-pf="${esc(c.id)}"><span>${esc(c.emoji)}</span>${esc(c.name)} <em>${count(c.id)}</em></button>`).join("")}
+      ${chipCats.map(c=>`<button class="chip ${filter===c.id?"on":""}" data-pf="${esc(c.id)}" ${c.id!=="_none"?`data-dropcat="${esc(c.id)}"`:""}><span>${esc(c.emoji)}</span>${esc(c.name)} <em>${count(c.id)}</em></button>`).join("")}
       <button class="chip add" id="pcNew">${ICON.plus}Categoría</button>
+      <button class="chip add" id="pcCfg">⚙︎ Ajustar</button>
     </div>
-    ${filter?"":`<div class="pgroup"><button class="linkish" id="pcNew2">＋ Nueva categoría</button><span class="seg" role="group" aria-label="Agrupar por">
+    ${dragHintHTML()}
+    ${filter?"":`<div class="pgroup"><button class="linkish" id="pcCfg2">⚙︎ Ajustar categorías</button><span class="seg" role="group" aria-label="Agrupar por">
       <button data-pg="cat" aria-pressed="${group==="cat"}">Categoría</button><button data-pg="state" aria-pressed="${group==="state"}">Estado</button></span></div>`}
   </div>`;
-  const items=(filter?all.filter(p=>pcatOf(p,sp)===filter):all).sort((a,b)=>(stateRank[a.state||"hay"]-stateRank[b.state||"hay"])||norm(a.name).localeCompare(norm(b.name)));
+  const items=(filter?all.filter(p=>groupOf(p,sp,visIds)===filter):all).sort((a,b)=>(stateRank[a.state||"hay"]-stateRank[b.state||"hay"])||norm(a.name).localeCompare(norm(b.name)));
+  const head=(c,n)=>`<div class="pcat-head"><p class="label">${esc(c.emoji)} ${esc(c.name)} <span class="count">${n}</span></p>${c.id!=="_none"?`<button class="r-edit" data-pcedit="${esc(c.id)}" aria-label="Editar categoría ${esc(c.name)}">${ICON.dots}</button>`:""}</div>`;
   if(!all.length){
     html+=`<div class="empty"><div style="font-size:40px">🫙</div><p class="e-big">La despensa está vacía</p><p>Apunta lo que tenéis en casa. Cuando finalices una compra, lo comprado aparecerá aquí solo. Toca cualquier producto para poner su precio, categoría o caducidad.</p></div>`;
   } else {
@@ -1719,7 +1926,7 @@ function paintPantryTab(sp,body,col){
     if(missing.length) html+=`<div class="pantry-alert"><span><strong>${missing.length}</strong> ${missing.length===1?"cosa se acaba o se ha acabado":"cosas se acaban o se han acabado"}</span><button class="btn" id="pAll">${ICON.plus}Pasar todo a la lista</button></div>`;
     const fc=filter?cats.find(c=>c.id===filter):null;
     if(fc){
-      html+=`<div><div class="pcat-head"><p class="label">${esc(fc.emoji)} ${esc(fc.name)} <span class="count">${items.length}</span></p>${fc.custom?`<button class="r-edit" data-pcedit="${esc(fc.id)}" aria-label="Editar categoría">${ICON.dots}</button>`:""}</div>`;
+      html+=`<div>${head(fc,items.length)}`;
       html+=items.length?`<ul class="rows">${items.map(pantryRowHTML).join("")}</ul>`:`<div class="empty"><p class="e-big">Aún no hay nada aquí</p><p>Escribe arriba para añadir productos a «${esc(fc.name)}», o abre cualquier producto y cámbiale la categoría.</p></div>`;
       html+=`</div>`;
     } else if(group==="state"){
@@ -1727,8 +1934,8 @@ function paintPantryTab(sp,body,col){
         const g=items.filter(p=>(p.state||"hay")===st); if(!g.length) return;
         html+=`<div><p class="label">${label} <span class="count">${g.length}</span></p><ul class="rows">${g.map(pantryRowHTML).join("")}</ul></div>`; });
     } else {
-      cats.forEach(c=>{ const g=items.filter(p=>pcatOf(p,sp)===c.id); if(!g.length) return;
-        html+=`<div><div class="pcat-head"><p class="label">${esc(c.emoji)} ${esc(c.name)} <span class="count">${g.length}</span></p>${c.custom?`<button class="r-edit" data-pcedit="${esc(c.id)}" aria-label="Editar categoría ${esc(c.name)}">${ICON.dots}</button>`:""}</div><ul class="rows">${g.map(pantryRowHTML).join("")}</ul></div>`; });
+      cats.forEach(c=>{ const g=items.filter(p=>groupOf(p,sp,visIds)===c.id); if(!g.length) return;
+        html+=`<div class="cat-group" ${c.id!=="_none"?`data-dropcat="${esc(c.id)}"`:""}>${head(c,g.length)}<ul class="rows">${g.map(pantryRowHTML).join("")}</ul></div>`; });
     }
   }
   body.innerHTML=html;
@@ -1736,19 +1943,20 @@ function paintPantryTab(sp,body,col){
   body.querySelectorAll("[data-pg]").forEach(b=>b.onclick=()=>{ S.pantryGroup=b.dataset.pg; try{localStorage.setItem("pantryGroup",S.pantryGroup);}catch(e){} paintPantryTab(sp,body,col); });
   body.querySelectorAll("[data-pcedit]").forEach(b=>b.onclick=()=>openPantryCat(sp.id,b.dataset.pcedit));
   const nc=body.querySelector("#pcNew"); if(nc) nc.onclick=()=>openPantryCat(sp.id,null);
-  const nc2=body.querySelector("#pcNew2"); if(nc2) nc2.onclick=()=>openPantryCat(sp.id,null);
+  ["#pcCfg","#pcCfg2"].forEach(x=>{ const b=body.querySelector(x); if(b) b.onclick=()=>openCatConfig(sp.id,pscope); });
   body.querySelectorAll("[data-pst]").forEach(b=>b.onclick=async()=>{try{await S.db.doc("pantry/"+b.dataset.pst).update({state:b.dataset.v,updatedAt:Date.now(),by:S.me});}catch(x){err(x)}});
   body.querySelectorAll("[data-popen]").forEach(b=>b.onclick=()=>openPantry(b.dataset.popen));
-  const toListExtra=p=>{ const d=p.details||{}; return {pcat:p.pcat||"",details:{marca:d.marca,variedad:d.variedad}}; };
+  wireDragCats(body,"pantry");
+  const toListExtra=p=>pantryExtra(p);
   const missing=items.filter(p=>p.state&&p.state!=="hay");
   body.querySelectorAll("[data-p2l]").forEach(b=>b.onclick=()=>{const p=S.pantry.get(b.dataset.p2l); pickList(sp.id,async lid=>{await addItem(p.name,{spaceId:sp.id,listId:lid},true,toListExtra(p)); toast(`${p.name} añadido a ${S.lists.get(lid)?.name}`);});});
   const allb=body.querySelector("#pAll"); if(allb) allb.onclick=()=>pickList(sp.id,async lid=>{for(const p of missing) await addItem(p.name,{spaceId:sp.id,listId:lid},true,toListExtra(p)); toast(`${missing.length} productos añadidos a ${S.lists.get(lid)?.name}`);});
 }
 function setListPlaceholder(sp){ const i=document.getElementById("addInput"); if(!i) return;
-  const c=S.listFilter?pantryCatsOf(sp).find(x=>x.id===S.listFilter):null;
+  const c=S.listFilter&&S.listFilter!=="_none"?pantryCatsOf(sp).find(x=>x.id===S.listFilter):null;
   i.placeholder=c?`Añadir a ${c.name}…`:"Ej.: leche, pan, 2 kg de patatas"; }
 function setPantryPlaceholder(sp){ const i=document.getElementById("pInput"); if(!i) return;
-  const c=S.pantryFilter?pantryCatsOf(sp).find(x=>x.id===S.pantryFilter):null;
+  const c=S.pantryFilter&&S.pantryFilter!=="_none"?pantryCatsOf(sp).find(x=>x.id===S.pantryFilter):null;
   i.placeholder=c?`Añadir a ${c.name}…`:"Ej.: arroz, aceite, sal"; }
 /* Ficha de un producto de la despensa */
 function openPantry(id){
@@ -1775,7 +1983,7 @@ function openPantry(id){
     <form id="fPan" class="item-form">
       <div class="grid2">
         <div class="field"><label for="pName">Nombre</label><input id="pName" maxlength="60" value="${esc(p.name)}" autocomplete="off"></div>
-        <div class="field"><label for="pCat">Categoría</label><select id="pCat">${pantryCatsOf(sp).map(c=>`<option value="${esc(c.id)}" ${c.id===pcatOf(p,sp)?"selected":""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("")}<option value="__new">＋ Nueva categoría…</option></select></div>
+        <div class="field"><label for="pCat">Categoría</label><select id="pCat">${catOptionsHTML(sp,{type:"pantry"},pcatOf(p,sp))}</select></div>
         <div class="field" id="pNewCatBox" style="grid-column:1/-1" hidden><label for="pNewCat">Nombre de la categoría nueva</label><input id="pNewCat" maxlength="30" placeholder="Ej.: Congelador"></div>
       </div>
       <section class="fs"><p class="label">En casa</p>
@@ -1848,7 +2056,7 @@ function openPantry(id){
         if(renamed){ upd.name=name; if(c){ upd.icon=c[1]; upd.cat=c[2]; } }
         let pc=q("#pCat").value;
         if(pc==="__new"){ const nn=q("#pNewCat").value.trim(); pc=nn?await createPantryCat(S.spaces.get(sp.id),nn,"🏷️"):pcatOf(p,sp); }
-        upd.pcat=pc; savedPcat=pc;
+        if(pc==="_none") pc=p.pcat||""; upd.pcat=pc; savedPcat=pc;
         await S.db.doc("pantry/"+id).update(upd);
         if(+det.precio){ const prev=bookPrice(sp.id,name,det.tienda||"General");
           if(!prev||+prev.price!==+det.precio||(prev.per||"")!==det.per) await recordPrice(sp.id,name,det.tienda||"General",det.precio,"","",det.per); }
@@ -2295,11 +2503,13 @@ function openListOptions(lid){
       <div class="field"><label for="lStore">Supermercado habitual de esta lista</label>
         <div class="row" style="flex-wrap:nowrap"><select id="lStore" style="flex:1"><option value="">Ninguno</option>${storesOf(sp).map(st=>`<option ${st===l.store?"selected":""}>${esc(st)}</option>`).join("")}</select><button class="btn" id="lStoreSave">Guardar</button></div>
         <p class="fine">Los productos nuevos se apuntarán en este súper y cogerán su precio de la libreta.</p></div>
+      <button class="btn quiet block" id="lCats">🏷️ Categorías de esta lista</button>
       <button class="btn quiet block" id="lEdit">${ICON.pen}Cambiar nombre o icono</button>
       ${done.length?`<button class="btn quiet block" id="lClear">Vaciar «Comprado hace poco» (${done.length})</button>`:""}
       <button class="btn quiet block" id="lDel" style="color:var(--danger)">Eliminar lista</button>
     </div>`,el=>{
       el.querySelector("#lEdit").onclick=()=>openNewList(sp.id,lid);
+      el.querySelector("#lCats").onclick=()=>openCatConfig(sp.id,{type:"list",id:lid});
       el.querySelector("#lStoreSave").onclick=async()=>{const v=el.querySelector("#lStore").value; try{await S.db.doc("lists/"+lid).update({store:v}); closeSheet(); toast(v?`Supermercado habitual: ${v}`:"Sin supermercado habitual");}catch(x){err(x)}};
       const c=el.querySelector("#lClear"); if(c) c.onclick=async()=>{closeSheet();for(const i of done){try{await S.db.doc("items/"+i.id).delete();}catch(e){}}toast("Historial vaciado");};
       el.querySelector("#lDel").onclick=()=>confirmSheet(col,"¿Eliminar «"+l.name+"»?","Se borrará la lista y sus productos para todos los miembros del espacio.","Eliminar lista",async()=>{
@@ -2434,7 +2644,7 @@ function openItem(id){
       </section>
       <section class="fs"><p class="label">Más</p>
         <div class="field"><label for="iName">Nombre</label><input id="iName" maxlength="60" value="${esc(it.name)}"></div>
-        <div class="field"><label for="iCat">Categoría</label><select id="iCat">${pantryCatsOf(sp).map(c=>`<option value="${esc(c.id)}" ${c.id===pcatOf(it,sp)?"selected":""}>${esc(c.emoji)} ${esc(c.name)}</option>`).join("")}<option value="__new">＋ Nueva categoría…</option></select></div>
+        <div class="field"><label for="iCat">Categoría</label><select id="iCat">${catOptionsHTML(sp,{type:"list",id:it.listId},pcatOf(it,sp))}</select></div>
         <div class="field" id="iNewCatBox" hidden><label for="iNewCat">Nombre de la categoría nueva</label><input id="iNewCat" maxlength="30" placeholder="Ej.: Congelador"></div>
         <div class="field"><label for="iNote">Nota para quien compre</label><input id="iNote" maxlength="80" value="${esc(d.nota)}" placeholder="Ej.: si no hay, la de otra marca"></div>
       </section>
@@ -2483,7 +2693,7 @@ function openItem(id){
         const n=q("#iName").value.trim()||it.name;
         try{let pc=q("#iCat").value;
           if(pc==="__new"){ const nn=q("#iNewCat").value.trim(); pc=nn?await createPantryCat(S.spaces.get(sp.id),nn,"🏷️"):pcatOf(it,sp); }
-          const catN=pc.startsWith("d")?+pc.slice(1):(it.cat??10);
+          if(pc==="_none") pc=it.pcat||""; const catN=pc.startsWith("d")?+pc.slice(1):(it.cat??10);
           const {id:_omit,...rest}=S.items.get(id)||it; await S.db.doc("items/"+id).set({...rest,name:n,cat:catN,pcat:pc,details:det,spec:specOf(det),assignee:q("#iWho").value||null});if(+det.precio){ const stx=det.tienda||(S.lists.get(it.listId)||{}).store||"General"; const prev=bookPrice(sp.id,n,stx);
           if(!prev||+prev.price!==+det.precio||(prev.per||"")!==det.per) recordPrice(sp.id,n,stx,det.precio,det.qty,det.unit,det.per); } closeSheet();toast("Guardado");}catch(x){err(x)}};
       q("#iDel").onclick=async()=>{try{await S.db.doc("items/"+id).delete();closeSheet();}catch(x){err(x)}};
