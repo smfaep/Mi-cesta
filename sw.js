@@ -1,6 +1,6 @@
 /* Service worker de La Cesta Familiar: permite abrir la app sin conexión.
    Sube el número de VERSION cada vez que cambies archivos para que los móviles se actualicen. */
-const VERSION = "la-cesta-v16";
+const VERSION = "la-cesta-v17";
 const SHELL = ["./", "index.html", "firebase-config.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png", "icons/favicon.png"];
 const CDN = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];

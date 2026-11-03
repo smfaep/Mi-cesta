@@ -707,6 +707,20 @@ body.cat-dragging .cat-group.drop-on{outline-color:var(--fg);background:color-mi
 .p-watch.spin svg{animation:rbSpin .75s cubic-bezier(.45,0,.25,1)}
 @media (prefers-reduced-motion:reduce){.p-watch.spin svg{animation:none}}
 
+/* ---- Buscador de la despensa ---- */
+.psearch{display:flex;align-items:center;gap:8px;padding:0 6px 0 14px;min-height:46px;border-radius:14px;background:var(--sheet,var(--surface));border:1px solid var(--fline,var(--line))}
+.psearch svg{width:18px;height:18px;flex:none;color:var(--muted)}
+.psearch input{flex:1;min-width:0;border:0;background:none;color:var(--fg);font:inherit;font-size:16px;padding:10px 0;outline:none}
+.psearch input::-webkit-search-cancel-button{display:none}
+.psearch button{flex:none;width:34px;height:34px;border:0;border-radius:50%;background:color-mix(in srgb,var(--fg) 8%,transparent);color:var(--fg);font-size:16px;line-height:1}
+.psearch:focus-within{border-color:color-mix(in srgb,var(--fg) 35%,transparent)}
+.ps-head{margin:0;font-size:13.5px;color:var(--muted)}
+.ps-tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:color-mix(in srgb,var(--fg) 9%,transparent);color:var(--muted);margin-left:6px;vertical-align:1px}
+/* ---- Filas de «Volver a comprar» ---- */
+.wrow{flex-wrap:nowrap}
+.wrow .p-open{flex:1;min-width:0}
+.wrow .mini.inl{background:none!important;color:var(--muted)!important;border:1px solid color-mix(in srgb,var(--fg) 14%,transparent)}
+
 /* ---- Web independiente ---- */
 html,body{margin:0}
 [hidden]{display:none!important}
@@ -2104,7 +2118,7 @@ function pantryRowHTML(p){ const st=p.state||"hay"; const meta=pantryMeta(p); re
     <button class="p-open" data-popen="${esc(p.id)}" aria-label="Editar ${esc(p.name)}">${rowIcon(p)}<span class="r-text"><span class="r-name">${esc(p.name)}</span>${meta?`<span class="pr-meta">${meta}</span>`:""}</span></button>
     <span class="seg" role="group" aria-label="Estado de ${esc(p.name)}">${PSTATES.map(([k,l])=>`<button data-pst="${esc(p.id)}" data-v="${k}" aria-pressed="${st===k}">${l}</button>`).join("")}</span>
     ${st!=="hay"?`<button class="mini" data-p2l="${esc(p.id)}" aria-label="Añadir ${esc(p.name)} a la lista">${ICON.plus}Lista</button>`:""}
-    <button class="p-watch" data-pwatch="${esc(p.id)}" aria-pressed="${!!p.watch}" aria-label="${p.watch?"Quitar":"Poner"} ${esc(p.name)} ${p.watch?"de":"en"} «Volver a comprar»" title="Volver a comprar">${HOUSE_SVG}</button>
+    ${watchBtnHTML(p)}
     <button class="r-edit" data-popen="${esc(p.id)}" aria-label="Editar ${esc(p.name)}">${ICON.pen}</button>
   </li>`; }
 const stateRank={no:0,poco:1,hay:2};
@@ -2121,37 +2135,62 @@ function wirePantryCommon(sp,body,col,items){
     await new Promise(r=>setTimeout(r,matchMedia("(prefers-reduced-motion: reduce)").matches?120:760));
     try{ await S.db.doc("pantry/"+p.id).update(on?{watch:true,watchAt:Date.now()}:{watch:false}); toast(on?`🔁 ${p.name} añadido a «Volver a comprar»`:`${p.name} quitado de «Volver a comprar»`); }catch(x){ err(x); } });
 }
-function paintWatchView(sp,body,col,ws){
-  const items=ws.slice().sort((a,b)=>(stateRank[a.state||"hay"]-stateRank[b.state||"hay"])||norm(a.name).localeCompare(norm(b.name)));
-  let html=pViewHTML(ws.length);
-  if(!items.length){
-    html+=`<div class="empty"><div style="font-size:40px">🍕</div><p class="e-big">Aún no hay nada aquí</p><p>Pon aquí lo que no compras siempre: pizzas, helado, patatas fritas, refrescos… Así sabes si queda de la última vez antes de volver a comprarlo. En «Toda la despensa», toca el botón ${HOUSE_SVG.replace("<svg",'<svg style="width:17px;height:17px;vertical-align:-3px"')} de cada producto para traerlo.</p><button class="btn" data-pview="all">Ir a toda la despensa</button></div>`;
-  } else {
-    html+=`<p class="watch-intro">Lo que no compras siempre. Mira si queda de la última vez y márcalo cuando se acabe.</p>`;
-    const missing=items.filter(p=>p.state&&p.state!=="hay");
-    if(missing.length) html+=`<div class="pantry-alert"><span><strong>${missing.length}</strong> ${missing.length===1?"cosa se acaba o se ha acabado":"cosas se acaban o se han acabado"}</span><button class="btn" id="pAll">${ICON.plus}Pasar todo a la lista</button></div>`;
-    html+=`<ul class="rows">${items.map(p=>{ const last=(p.details||{}).lastAt; let h=pantryRowHTML(p);
-      if(last) h=h.replace('<span class="r-name">'+esc(p.name)+'</span>','<span class="r-name">'+esc(p.name)+'</span><span class="w-last">Comprado '+esc(agoTxt(last))+'</span>');
-      return h; }).join("")}</ul>`;
-  }
-  body.innerHTML=html;
-  wirePantryCommon(sp,body,col,items);
+
+/* ---- Buscador y filas de «Volver a comprar» ---- */
+const SEARCH_SVG=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>`;
+function inAnyList(sid,name){ const n=sing(norm(name)); return [...S.items.values()].some(i=>i.spaceId===sid&&!i.done&&sing(norm(i.name))===n); }
+function psearchHTML(){ const v=S.pantryQ||"";
+  return `<label class="psearch">${SEARCH_SVG}<span class="sr">Buscar en la despensa</span><input id="pSearch" type="search" placeholder="Buscar en la despensa…" value="${esc(v)}" autocomplete="off" enterkeyhint="search">${v?`<button type="button" id="pSearchX" aria-label="Borrar búsqueda">✕</button>`:""}</label>`; }
+function watchBtnHTML(p){ return `<button class="p-watch" data-pwatch="${esc(p.id)}" aria-pressed="${!!p.watch}" aria-label="${p.watch?"Quitar":"Poner"} ${esc(p.name)} ${p.watch?"de":"en"} «Volver a comprar»" title="Volver a comprar">${HOUSE_SVG}</button>`; }
+function watchRowHTML(p,tag){ const last=(p.details||{}).lastAt; const inL=inAnyList(p.spaceId,p.name);
+  return `<li class="pantry-row wrow" data-pid="${esc(p.id)}">
+    <button class="p-open" data-popen="${esc(p.id)}" aria-label="Editar ${esc(p.name)}">${rowIcon(p)}<span class="r-text"><span class="r-name">${esc(p.name)}${tag?`<span class="ps-tag">🔁 Volver a comprar</span>`:""}</span>${last?`<span class="w-last">Comprado ${esc(agoTxt(last))}</span>`:""}</span></button>
+    ${inL?`<button class="mini inl" data-p2l="${esc(p.id)}" aria-label="${esc(p.name)} ya está en una lista. Añadir a otra">✓ En la lista</button>`:`<button class="mini" data-p2l="${esc(p.id)}" aria-label="Añadir ${esc(p.name)} a la lista">${ICON.plus}Lista</button>`}
+    ${watchBtnHTML(p)}
+    <button class="r-edit" data-popen="${esc(p.id)}" aria-label="Editar ${esc(p.name)}">${ICON.pen}</button>
+  </li>`; }
+function wirePantryRows(sp,body,col){
   body.querySelectorAll("[data-pst]").forEach(b=>b.onclick=async()=>{try{await S.db.doc("pantry/"+b.dataset.pst).update({state:b.dataset.v,updatedAt:Date.now(),by:S.me});}catch(x){err(x)}});
   body.querySelectorAll("[data-popen]").forEach(b=>b.onclick=()=>openPantry(b.dataset.popen));
-  const missing=items.filter(p=>p.state&&p.state!=="hay");
   body.querySelectorAll("[data-p2l]").forEach(b=>b.onclick=()=>{const p=S.pantry.get(b.dataset.p2l); pickList(sp.id,async lid=>{await addItem(p.name,{spaceId:sp.id,listId:lid},true,pantryExtra(p)); toast(`${p.name} añadido a ${S.lists.get(lid)?.name}`);});});
-  const allb=body.querySelector("#pAll"); if(allb) allb.onclick=()=>pickList(sp.id,async lid=>{for(const p of missing) await addItem(p.name,{spaceId:sp.id,listId:lid},true,pantryExtra(p)); toast(`${missing.length} productos añadidos a ${S.lists.get(lid)?.name}`);});
+}
+function wireSearch(sp,body,col){ const i=body.querySelector("#pSearch"); if(!i) return;
+  i.oninput=()=>{ S.pantryQ=i.value; paintPantryTab(sp,body,col); const j=body.querySelector("#pSearch"); if(j){ j.focus(); const n=j.value.length; try{ j.setSelectionRange(n,n); }catch(e){} } };
+  i.onkeydown=e=>{ if(e.key==="Escape"){ S.pantryQ=""; paintPantryTab(sp,body,col); } };
+  const x=body.querySelector("#pSearchX"); if(x) x.onclick=e=>{ e.preventDefault(); S.pantryQ=""; paintPantryTab(sp,body,col); const j=body.querySelector("#pSearch"); if(j) j.focus(); }; }
+function paintPantrySearch(sp,body,col,allP){
+  const q=norm(S.pantryQ);
+  const hit=p=>{ const d=p.details||{}; return [p.name,d.marca,d.variedad].some(x=>x&&norm(x).includes(q)); };
+  const res=allP.filter(hit).sort((a,b)=>norm(a.name).indexOf(q)-norm(b.name).indexOf(q)||norm(a.name).localeCompare(norm(b.name)));
+  let html=psearchHTML();
+  html+=res.length?`<p class="ps-head">${res.length} ${res.length===1?"resultado":"resultados"} en toda la despensa</p><ul class="rows">${res.map(p=>p.watch?watchRowHTML(p,true):pantryRowHTML(p)).join("")}</ul>`
+    :`<div class="empty"><p class="e-big">No hay «${esc(S.pantryQ.trim())}» en la despensa</p><p>Puedes añadirlo con el cuadro de arriba.</p></div>`;
+  body.innerHTML=html;
+  wirePantryCommon(sp,body,col,res); wirePantryRows(sp,body,col); wireSearch(sp,body,col);
+}
+function paintWatchView(sp,body,col,ws){
+  const items=ws.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name)));
+  let html=psearchHTML()+pViewHTML(ws.length);
+  if(!items.length){
+    html+=`<div class="empty"><div style="font-size:40px">🍕</div><p class="e-big">Aún no hay nada aquí</p><p>Pon aquí lo que no compras siempre: pizzas, helado, patatas fritas, refrescos… En «Toda la despensa», toca el botón ${HOUSE_SVG.replace("<svg",'<svg style="width:17px;height:17px;vertical-align:-3px"')} de un producto y pasará a este apartado.</p><button class="btn" data-pview="all">Ir a toda la despensa</button></div>`;
+  } else {
+    html+=`<p class="watch-intro">Lo que no compras siempre. Cuando quieras volver a comprarlo, pulsa «+ Lista».</p>`;
+    html+=`<ul class="rows">${items.map(p=>watchRowHTML(p,false)).join("")}</ul>`;
+  }
+  body.innerHTML=html;
+  wirePantryCommon(sp,body,col,items); wirePantryRows(sp,body,col); wireSearch(sp,body,col);
 }
 function paintPantryTab(sp,body,col){
-  const all=pantryOf(sp.id); const pscope={type:"pantry"};
+  const allP=pantryOf(sp.id); const all=allP.filter(p=>!p.watch); const pscope={type:"pantry"};
   if(S.pantryView===undefined){ try{ S.pantryView=localStorage.getItem("pantryView")||"all"; }catch(e){ S.pantryView="all"; } }
-  const ws=all.filter(p=>p.watch);
+  const ws=allP.filter(p=>p.watch);
+  if((S.pantryQ||"").trim()){ paintPantrySearch(sp,body,col,allP); return; }
   if(S.pantryView==="watch"){ paintWatchView(sp,body,col,ws); setPantryPlaceholder(sp); return; }
   const vis=catsFor(sp,pscope); const visIds=new Set(vis.map(c=>c.id)); const cats=[...vis,NONE_CAT];
   const group=S.pantryGroup||"cat", filter=S.pantryFilter&&cats.some(c=>c.id===S.pantryFilter)?S.pantryFilter:"";
   const count=id=>all.filter(p=>groupOf(p,sp,visIds)===id).length;
   const chipCats=cats.filter(c=>c.id==="_none"?count(c.id)>0:(c.custom||count(c.id)>0));
-  let html=pViewHTML(ws.length)+`<div class="pcat-bar">
+  let html=psearchHTML()+pViewHTML(ws.length)+`<div class="pcat-bar">
     <div class="chips" role="group" aria-label="Categorías">
       <button class="chip ${filter?"":"on"}" data-pf="">Todo <em>${all.length}</em></button>
       ${chipCats.map(c=>`<button class="chip ${filter===c.id?"on":""}" data-pf="${esc(c.id)}" ${c.id!=="_none"?`data-dropcat="${esc(c.id)}"`:""}><span>${esc(c.emoji)}</span>${esc(c.name)} <em>${count(c.id)}</em></button>`).join("")}
@@ -2165,7 +2204,7 @@ function paintPantryTab(sp,body,col){
   const items=(filter?all.filter(p=>groupOf(p,sp,visIds)===filter):all).sort((a,b)=>(stateRank[a.state||"hay"]-stateRank[b.state||"hay"])||norm(a.name).localeCompare(norm(b.name)));
   const head=(c,n)=>`<div class="pcat-head"><p class="label">${esc(c.emoji)} ${esc(c.name)} <span class="count">${n}</span></p>${c.id!=="_none"?`<button class="r-edit" data-pcedit="${esc(c.id)}" aria-label="Editar categoría ${esc(c.name)}">${ICON.dots}</button>`:""}</div>`;
   if(!all.length){
-    html+=`<div class="empty"><div style="font-size:40px">🫙</div><p class="e-big">La despensa está vacía</p><p>Apunta lo que tenéis en casa. Cuando finalices una compra, lo comprado aparecerá aquí solo. Toca cualquier producto para poner su precio, categoría o caducidad.</p></div>`;
+    if(ws.length) html+=`<div class="empty"><p class="e-big">Todo está en «Volver a comprar»</p><p>Lo que añadas aquí arriba aparecerá en esta lista.</p></div>`; else html+=`<div class="empty"><div style="font-size:40px">🫙</div><p class="e-big">La despensa está vacía</p><p>Apunta lo que tenéis en casa. Cuando finalices una compra, lo comprado aparecerá aquí solo. Toca cualquier producto para poner su precio, categoría o caducidad.</p></div>`;
   } else {
     const missing=items.filter(p=>p.state&&p.state!=="hay");
     if(missing.length) html+=`<div class="pantry-alert"><span><strong>${missing.length}</strong> ${missing.length===1?"cosa se acaba o se ha acabado":"cosas se acaban o se han acabado"}</span><button class="btn" id="pAll">${ICON.plus}Pasar todo a la lista</button></div>`;
@@ -2184,7 +2223,7 @@ function paintPantryTab(sp,body,col){
     }
   }
   body.innerHTML=html;
-  wirePantryCommon(sp,body,col,items);
+  wirePantryCommon(sp,body,col,items); wireSearch(sp,body,col);
   body.querySelectorAll("[data-pf]").forEach(b=>b.onclick=()=>{ S.pantryFilter=b.dataset.pf; paintPantryTab(sp,body,col); setPantryPlaceholder(sp); });
   body.querySelectorAll("[data-pg]").forEach(b=>b.onclick=()=>{ S.pantryGroup=b.dataset.pg; try{localStorage.setItem("pantryGroup",S.pantryGroup);}catch(e){} paintPantryTab(sp,body,col); });
   body.querySelectorAll("[data-pcedit]").forEach(b=>b.onclick=()=>openPantryCat(sp.id,b.dataset.pcedit));
