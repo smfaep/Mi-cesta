@@ -721,6 +721,45 @@ body.cat-dragging .cat-group.drop-on{outline-color:var(--fg);background:color-mi
 .wrow .p-open{flex:1;min-width:0}
 .wrow .mini.inl{background:none!important;color:var(--muted)!important;border:1px solid color-mix(in srgb,var(--fg) 14%,transparent)}
 
+/* ---- Adaptable: pantallas pequeñas y letra grande ---- */
+.r-name,.r-spec{overflow-wrap:break-word;word-break:normal;hyphens:auto}
+.sw-content>.r-main{flex:1 1 auto;min-width:0}
+.row-item.swipe{container:rowc/inline-size}
+/* Si la fila no tiene sitio (móvil estrecho o letra grande), cantidad y precio bajan a una segunda línea */
+@container rowc (max-width:28em){
+  .sw-content{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:2px;row-gap:2px;padding-bottom:10px}
+  .sw-content>.check{grid-column:1;grid-row:1/span 2;align-self:start}
+  .sw-content>.r-main{grid-column:2;grid-row:1;padding-bottom:2px}
+  .sw-content>.r-edit{grid-column:3;grid-row:1;align-self:start;margin-top:8px}
+  .sw-content>.r-qty{grid-column:2;grid-row:2;justify-self:start;margin-left:calc(34px + 12px);max-width:calc(100% - 46px)}
+  .sw-content>.r-price{grid-column:2/span 2;grid-row:2;justify-self:end;max-width:none;flex-direction:row;align-items:baseline;gap:6px;padding:0 10px 0 4px;text-align:right}
+  .sw-content>.r-price small{white-space:nowrap}
+}
+/* Letra muy grande: sin icono y con la casilla más estrecha, para que el nombre quepa entero */
+@container rowc (max-width:17.5em){
+  .sw-content>.r-main>.r-ico,.sw-content>.r-main>.r-photo{display:none}
+  .sw-content>.check{width:40px}
+  .sw-content>.r-qty,body.store .sw-content>.r-qty{margin-left:0;max-width:100%;white-space:normal;height:auto;min-height:34px;padding-block:4px;text-align:center}
+  .sw-content>.r-price small{display:none}
+}
+body.store .sw-content>.r-qty{margin-left:calc(40px + 12px)}
+/* Resumen de lo que cuesta: pasa a varias filas si no cabe */
+.sum-card{grid-template-columns:repeat(auto-fit,minmax(min(100%,6.6em),1fr))}
+.sum-card strong{white-space:nowrap}
+/* Barra de «Finalizar compra» */
+.finish-in{flex-wrap:wrap;row-gap:8px}
+.finish-txt{flex:1 1 8em;min-width:0}
+.finish .btn{flex:1 0 auto}
+/* Cuadro de añadir: el botón baja si no cabe */
+.addbox{flex-wrap:wrap;row-gap:6px}
+.addbox input{flex:1 1 8em;min-width:0}
+/* Despensa y «Volver a comprar» */
+.pantry-row .p-open{flex:1 1 9em;min-width:0}
+.wrow{flex-wrap:wrap}
+.wrow .p-open{flex:1 1 9em}
+/* Títulos largos */
+h1,.title,.list-title{overflow-wrap:break-word;hyphens:auto}
+
 /* ---- Web independiente ---- */
 html,body{margin:0}
 [hidden]{display:none!important}
@@ -1376,8 +1415,12 @@ function authorsOf(i){ const a=[]; if(i.addedBy) a.push({uid:i.addedBy,at:i.adde
 const whoName=u=>u===S.me?"ti":pname(u);
 const joinNames=arr=>arr.length<=1?arr.join(""):arr.slice(0,-1).join(", ")+" y "+arr.at(-1);
 const avatarImgs=(a,cls)=>`<span class="stack ${cls||""}">${a.slice(0,3).map(x=>`<img referrerpolicy="no-referrer" src="${esc(S.profiles[x.uid]?.avatarUrl||"")}" alt="">`).join("")}</span>`;
+/* Nombre corto para las filas: «Mari Carmen Torres» → «Mari Carmen», «Pau Melguizo» → «Pau» */
+function shortName(n){ const w=String(n||"").trim().split(/\s+/).filter(Boolean); if(w.length>=3) return w.slice(0,-1).join(" "); return w[0]||""; }
+const whoShort=u=>u===S.me?"ti":shortName(pname(u));
 function whoLineHTML(i){ const a=authorsOf(i); if(!a.length) return "";
-  return `<span class="r-who2">${avatarImgs(a,"sm")}Apuntado por ${esc(joinNames(a.map(x=>whoName(x.uid))))}</span>`; }
+  const full=joinNames(a.map(x=>whoName(x.uid)));
+  return `<span class="r-who2" title="Apuntado por ${esc(full)}">${avatarImgs(a,"sm")}Apuntado por ${esc(joinNames(a.map(x=>whoShort(x.uid))))}</span>`; }
 function whenTxt(t){ if(!t) return ""; const d=new Date(t), n=new Date();
   const hm=d.toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
   const day=Math.round((new Date(n.getFullYear(),n.getMonth(),n.getDate())-new Date(d.getFullYear(),d.getMonth(),d.getDate()))/864e5);
